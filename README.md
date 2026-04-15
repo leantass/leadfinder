@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
 ## Getting Started
 
-First, run the development server:
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Automation Runner
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The due schedules runner is exposed through:
 
-## Learn More
+- `GET /api/automation/run-due-schedules`
+- `POST /api/automation/run-due-schedules`
 
-To learn more about Next.js, take a look at the following resources:
+Both methods use the same internal runner and require the same secret protection.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Required environment variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Add these variables in your deployment environment:
+
+```env
+AUTOMATION_RUNNER_SECRET=replace_with_a_long_random_secret
+CRON_SECRET=replace_with_the_same_value_used_in_AUTOMATION_RUNNER_SECRET
+```
+
+`AUTOMATION_RUNNER_SECRET` is the application-level secret already used by the endpoint.
+
+`CRON_SECRET` is required by Vercel Cron so Vercel can automatically send:
+
+```txt
+Authorization: Bearer <CRON_SECRET>
+```
+
+To keep a single source of truth, set `CRON_SECRET` to the same value as `AUTOMATION_RUNNER_SECRET`.
+
+### Vercel Cron configuration
+
+The project includes [vercel.json](./vercel.json) with an hourly schedule:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/automation/run-due-schedules",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
+```
+
+This runs every hour in UTC against the production deployment.
+
+If the project is deployed on Vercel Hobby, Vercel only allows daily cron jobs. In that case, change the schedule before deploying to something like `0 3 * * *`.
+
+### Manual testing
+
+Local or remote manual test with `POST`:
+
+```bash
+curl -X POST http://localhost:3000/api/automation/run-due-schedules \
+  -H "Authorization: Bearer YOUR_AUTOMATION_RUNNER_SECRET"
+```
+
+Manual test with `GET`:
+
+```bash
+curl http://localhost:3000/api/automation/run-due-schedules \
+  -H "Authorization: Bearer YOUR_AUTOMATION_RUNNER_SECRET"
+```
+
+The endpoint returns the persisted execution summary, so every invocation remains auditable in `/operations`.
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+After setting `AUTOMATION_RUNNER_SECRET` and `CRON_SECRET`, deploy the project to Vercel. The cron job defined in `vercel.json` will start invoking the protected endpoint on production automatically.

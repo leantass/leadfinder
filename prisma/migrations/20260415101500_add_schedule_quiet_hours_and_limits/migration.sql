@@ -1,0 +1,10 @@
+ALTER TABLE "AutomationSchedule"
+ADD COLUMN "respectQuietHours" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "runWindowStart" TEXT NOT NULL DEFAULT '09:00',
+ADD COLUMN "runWindowEnd" TEXT NOT NULL DEFAULT '21:00',
+ADD COLUMN "timezone" TEXT NOT NULL DEFAULT 'America/Buenos_Aires',
+ADD COLUMN "maxItemsPerRun" INTEGER NOT NULL DEFAULT 20;
+
+ALTER TABLE "AutomationSchedulerExecution"
+ADD COLUMN "skippedQuietHours" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "limitedRuns" INTEGER NOT NULL DEFAULT 0;

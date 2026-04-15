@@ -1,0 +1,2 @@
+ALTER TABLE "AutomationSchedule"
+ADD COLUMN "runEveryMinutes" INTEGER NOT NULL DEFAULT 60;

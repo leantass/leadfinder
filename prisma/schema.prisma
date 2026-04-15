@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SearchJob {
+  id         String   @id @default(cuid())
+  query      String
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  finishedAt DateTime?
+  leads      Lead[]
+}
+
+model Lead {
+  id                   String     @id @default(cuid())
+  searchJobId          String
+  businessName         String
+  category             String?
+  address              String?
+  city                 String?
+  phone                String?
+  website              String?
+  websiteType          String     @default("unknown")
+  rating               Float?
+  reviewsCount         Int?
+  sourceUrl            String?
+  sourcePlatform       String     @default("google_maps")
+  commercialStatus     String     @default("new")
+  scrapedAt            DateTime   @default(now())
+
+  score                Int        @default(0)
+  scoreReasons         String[]   @default([])
+
+  businessType         String?
+  suggestedOffer       String?
+  offerReason          String?
+
+  outreachStatus       String     @default("pending_review")
+  outreachChannel      String?
+  readyForAutomation   Boolean    @default(false)
+  queuedForAutomationAt DateTime?
+  automationStartedAt  DateTime?
+  firstContactAt       DateTime?
+  lastContactAt        DateTime?
+  automationSummary    String?
+  followUpNextAction   String?
+  followUpDueAt        DateTime?
+
+  notes                LeadNote[]
+  activities           LeadActivity[]
+  automationRunItems   AutomationRunItem[]
+
+  searchJob            SearchJob  @relation(fields: [searchJobId], references: [id], onDelete: Cascade)
+
+  @@index([searchJobId])
+  @@index([commercialStatus])
+  @@index([score])
+  @@index([businessType])
+  @@index([websiteType])
+  @@index([suggestedOffer])
+  @@index([outreachStatus])
+  @@index([readyForAutomation])
+  @@index([queuedForAutomationAt])
+  @@index([followUpDueAt])
+}
+
+model LeadNote {
+  id        String   @id @default(cuid())
+  leadId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+model LeadActivity {
+  id        String   @id @default(cuid())
+  leadId    String
+  type      String
+  label     String
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([createdAt])
+  @@index([type])
+}
+
+model AutomationRun {
+  id             String              @id @default(cuid())
+  source         String              @default("manual")
+  scheduleId     String?
+  executionKey   String?             @unique
+  query          String              @default("")
+  filter         String              @default("all")
+  sort           String              @default("score-desc")
+  page           Int                 @default(1)
+  pageSize       Int                 @default(20)
+  status         String              @default("pending")
+  analyzedCount  Int                 @default(0)
+  decisionCount  Int                 @default(0)
+  appliedCount   Int                 @default(0)
+  failedCount    Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  items          AutomationRunItem[]
+  schedule       AutomationSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([scheduleId])
+}
+
+model AutomationRunItem {
+  id                      String         @id @default(cuid())
+  runId                   String
+  leadId                  String
+  action                  String
+  confidence              String
+  reason                  String
+  suggestedStatus         String?
+  suggestedChannel        String?
+  suggestedMessagePreview String?
+  status                  String         @default("pending")
+  failureReason           String?
+  createdAt               DateTime       @default(now())
+  appliedAt               DateTime?
+  run                     AutomationRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  lead                    Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([runId, status])
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+model AutomationSchedule {
+  id            String          @id @default(cuid())
+  name          String
+  isEnabled     Boolean         @default(true)
+  runEveryMinutes Int           @default(60)
+  query         String          @default("")
+  filter        String          @default("all")
+  sort          String          @default("score-desc")
+  page          Int             @default(1)
+  pageSize      Int             @default(20)
+  autoApplySafe Boolean         @default(false)
+  autoApplyMinConfidence String @default("high")
+  autoApplyActions String[]     @default(["contact_now", "follow_up", "send_to_sales"])
+  respectQuietHours Boolean     @default(false)
+  runWindowStart String         @default("09:00")
+  runWindowEnd   String         @default("21:00")
+  timezone       String         @default("America/Buenos_Aires")
+  maxItemsPerRun Int            @default(20)
+  lastRunAt     DateTime?
+  lockedAt      DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  runs          AutomationRun[]
+
+  @@index([isEnabled, updatedAt])
+  @@index([createdAt])
+}
+
+model AutomationSchedulerExecution {
+  id                 String   @id @default(cuid())
+  status             String   @default("running")
+  schedulesChecked   Int      @default(0)
+  schedulesRun       Int      @default(0)
+  runsCreated        Int      @default(0)
+  skippedLocked      Int      @default(0)
+  skippedDuplicate   Int      @default(0)
+  skippedQuietHours  Int      @default(0)
+  limitedRuns        Int      @default(0)
+  safeActionsApplied Int      @default(0)
+  errorSummary       String?
+  createdAt          DateTime @default(now())
+  startedAt          DateTime @default(now())
+  finishedAt         DateTime?
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+}
