@@ -1,78 +1,105 @@
-## Getting Started
+# LeadFinder
 
-Run the development server:
+LeadFinder es una plataforma para generar, priorizar, procesar y operar oportunidades comerciales. Aunque hoy adquiere datos desde Google Maps, el producto no debe presentarse ni evolucionar como un scraper: combina CRM liviano, automatización visual supervisada, monitoreo y un centro de operaciones comercial.
+
+El flujo de producto es **adquisición → evaluación → organización → operación → automatización**. La captura es solo una entrada; el objetivo es que un equipo pueda convertir información dispersa en trabajo comercial trazable.
+
+## Stack y requisitos
+
+- Next.js 16, React 19 y TypeScript
+- PostgreSQL y Prisma 7 (`@prisma/adapter-pg`)
+- Playwright para la captura actual de Google Maps
+- Node.js 20+ y npm
+- Una instancia PostgreSQL accesible mediante `DATABASE_URL`
+
+## Instalación local
 
 ```bash
+git clone https://github.com/leantass/leadfinder.git
+cd leadfinder
+npm ci
+Copy-Item .env.example .env
+```
+
+Completá `DATABASE_URL` en `.env` con una conexión PostgreSQL local o remota. No subas ese archivo: `.env*` está ignorado intencionalmente. Generá el cliente y aplicá las migraciones antes de iniciar la aplicación:
+
+```bash
+npx prisma generate
+npx prisma migrate deploy
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+La aplicación queda disponible en `http://localhost:3000`.
 
-## Automation Runner
+Para desarrollo de esquema, usá `npx prisma migrate dev --name <nombre>` en una base de desarrollo. No edites migraciones ya aplicadas. `prisma.config.ts` toma `DATABASE_URL` desde el entorno.
 
-The due schedules runner is exposed through:
+## Variables de entorno
 
-- `GET /api/automation/run-due-schedules`
-- `POST /api/automation/run-due-schedules`
+Partí de [`.env.example`](./.env.example). Solo se consumen estas variables:
 
-Both methods use the same internal runner and require the same secret protection.
+| Variable | Uso |
+| --- | --- |
+| `DATABASE_URL` | Conexión PostgreSQL usada por Prisma y la aplicación. |
+| `AUTOMATION_RUNNER_SECRET` | Protege `GET` y `POST /api/automation/run-due-schedules`. |
+| `CRON_SECRET` | Se configura en Vercel para que su cron envíe `Authorization: Bearer <CRON_SECRET>`. Usar el mismo valor que `AUTOMATION_RUNNER_SECRET` simplifica la operación. |
 
-### Required environment variables
+No hay claves de terceros configuradas en el código. La captura de Google Maps usa Playwright y puede requerir que los navegadores de Playwright estén instalados: `npx playwright install`.
 
-Add these variables in your deployment environment:
+## Validaciones
 
-```env
-AUTOMATION_RUNNER_SECRET=replace_with_a_long_random_secret
-CRON_SECRET=replace_with_the_same_value_used_in_AUTOMATION_RUNNER_SECRET
+```bash
+npx prisma validate
+npx prisma generate
+npx tsc --noEmit
+npm run lint
+npm run build
 ```
 
-`AUTOMATION_RUNNER_SECRET` is the application-level secret already used by the endpoint.
+`npm run build` y las páginas que leen datos requieren una `DATABASE_URL` válida porque el cliente Prisma se crea en el servidor. No hay suite de tests automatizados ni script `test` en este repositorio actualmente.
 
-`CRON_SECRET` is required by Vercel Cron so Vercel can automatically send:
+## Rutas y módulos
 
-```txt
-Authorization: Bearer <CRON_SECRET>
-```
+| Ruta | Estado | Propósito |
+| --- | --- | --- |
+| `/` | funcional | Dashboard ejecutivo con alertas y accesos al trabajo prioritario. |
+| `/searches` | funcional | Ejecuta jobs de Google Maps y muestra su historial. |
+| `/leads` | funcional | Pipeline por lead: búsqueda, filtros, orden, paginación server-side, detalle, notas, seguimiento e historial. |
+| `/operations` | funcional | Runs, cola y automatización supervisada; schedules y auditoría del scheduler. |
+| `/sources` | base visual | Describe la fuente actual (Google Maps); no administra fuentes aún. |
+| `/scrapers` | base visual | Reserva la observabilidad técnica; no contiene controles de salud del scraper. |
+| `/campaigns` | base visual | Reserva campañas; no hay envíos ni secuencias reales. |
+| `/reports` | parcial | Muestra métricas existentes, sin analítica o exportación completa. |
+| `/settings` | base visual | Expone contexto de schedules, sin editor de ajustes globales. |
 
-To keep a single source of truth, set `CRON_SECRET` to the same value as `AUTOMATION_RUNNER_SECRET`.
+## Arquitectura
 
-### Vercel Cron configuration
+- `src/app`: App Router, páginas y Server Actions.
+- `src/components`: shell, panel de leads, controles de listado, operaciones y vistas base de módulos.
+- `src/lib/workspace-data.ts`: consultas y normalización de la vista; el listado usa filtros, orden y paginación en servidor.
+- `src/services/search-jobs.ts` + `src/scraper/google-maps.ts`: creación de `SearchJob`, captura y persistencia/enriquecimiento de leads.
+- `src/lib/leads/automation-engine.ts`: decisiones y niveles de confianza de automatización.
+- `src/lib/automation/schedule-runner.ts`: runs, aplicación supervisada, schedules, locks e historial de ejecuciones.
+- `prisma/schema.prisma` y `prisma/migrations`: contrato de datos y migraciones versionadas.
 
-The project includes [vercel.json](./vercel.json) with an hourly schedule:
+Los datos principales son `SearchJob`, `Lead`, `LeadNote`, `LeadActivity`, `AutomationRun`, `AutomationRunItem`, `AutomationSchedule` y `AutomationSchedulerExecution`. `Lead` conserva el origen (`sourcePlatform`, `sourceUrl`), estado comercial, señales/enriquecimiento, notas, seguimiento, actividad y relación con runs.
 
-```json
-{
-  "crons": [
-    {
-      "path": "/api/automation/run-due-schedules",
-      "schedule": "0 * * * *"
-    }
-  ]
-}
-```
+## Automatización y runner
 
-This runs every hour in UTC against the production deployment.
+`/operations` puede crear runs persistidos sobre el contexto filtrado y aplicar cada decisión de forma supervisada. Un schedule almacena intervalo, filtros, política de autoaplicación, ventana horaria/quiet hours, timezone y `maxItemsPerRun`.
 
-If the project is deployed on Vercel Hobby, Vercel only allows daily cron jobs. In that case, change the schedule before deploying to something like `0 3 * * *`.
+El runner due está disponible en `GET` y `POST /api/automation/run-due-schedules`. Exige `AUTOMATION_RUNNER_SECRET` por header `x-automation-runner-secret` o `Authorization: Bearer …`. Cada invocación crea una `AutomationSchedulerExecution`; los runs tienen `executionKey` único y los schedules usan `lockedAt` para reducir ejecuciones duplicadas o concurrentes. La autoaplicación solo continúa con ítems pendientes que cumplen la política configurada de acción y confianza.
 
-### Manual testing
+`vercel.json` programa la ruta cada hora (`0 * * * *`, UTC). La variable `CRON_SECRET` debe estar configurada en Vercel y coincidir con el secret esperado por el endpoint. Confirmá las restricciones del plan de Vercel antes de desplegar: los planes Hobby pueden limitar la frecuencia.
 
-Local or remote manual test with `POST`:
+Prueba manual, con la app levantada y un secret real:
 
 ```bash
 curl -X POST http://localhost:3000/api/automation/run-due-schedules \
   -H "Authorization: Bearer YOUR_AUTOMATION_RUNNER_SECRET"
 ```
 
-Manual test with `GET`:
+## Deployment
 
-```bash
-curl http://localhost:3000/api/automation/run-due-schedules \
-  -H "Authorization: Bearer YOUR_AUTOMATION_RUNNER_SECRET"
-```
+Configurar las tres variables de entorno en el proveedor, ejecutar las migraciones contra la base objetivo y desplegar la aplicación. El cron no reemplaza las migraciones ni crea la base. Revisar que la plataforma de hosting soporte la ejecución del scraper/Playwright si se pretenden lanzar búsquedas desde producción.
 
-The endpoint returns the persisted execution summary, so every invocation remains auditable in `/operations`.
-
-## Deploy on Vercel
-
-After setting `AUTOMATION_RUNNER_SECRET` and `CRON_SECRET`, deploy the project to Vercel. The cron job defined in `vercel.json` will start invoking the protected endpoint on production automatically.
+Para continuidad del proyecto, leer [ROADMAP.md](./ROADMAP.md) y [HANDOFF.md](./HANDOFF.md) después de este documento.
