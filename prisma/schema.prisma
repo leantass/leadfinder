@@ -6,6 +6,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum LeadOrigin {
+  SEARCH
+  MANUAL
+}
+
 model SearchJob {
   id         String   @id @default(cuid())
   query      String
@@ -17,7 +22,7 @@ model SearchJob {
 
 model Lead {
   id                   String     @id @default(cuid())
-  searchJobId          String
+  searchJobId          String?
   businessName         String
   category             String?
   address              String?
@@ -28,7 +33,8 @@ model Lead {
   rating               Float?
   reviewsCount         Int?
   sourceUrl            String?
-  sourcePlatform       String     @default("google_maps")
+  sourcePlatform       String?    @default("google_maps")
+  origin               LeadOrigin @default(SEARCH)
   commercialStatus     String     @default("new")
   scrapedAt            DateTime   @default(now())
 
@@ -54,7 +60,7 @@ model Lead {
   activities           LeadActivity[]
   automationRunItems   AutomationRunItem[]
 
-  searchJob            SearchJob  @relation(fields: [searchJobId], references: [id], onDelete: Cascade)
+  searchJob            SearchJob? @relation(fields: [searchJobId], references: [id], onDelete: Cascade)
 
   @@index([searchJobId])
   @@index([commercialStatus])

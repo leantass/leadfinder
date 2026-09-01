@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { enrichLeadCommercialData } from "@/lib/lead-commercial";
 import { getStatusLabel } from "@/lib/leads/lead-ui";
+import {
+  validateManualLeadInput,
+  type ManualLeadFieldErrors,
+  type ManualLeadInput,
+} from "@/lib/leads/manual-lead";
 import {
   applyAutomationRunItemRecord,
   createAutomationRunRecord,
@@ -74,6 +80,33 @@ type SearchActionState = {
   error: string | null;
   jobId: string | null;
 };
+
+export type CreateManualLeadResult =
+  | {
+      ok: true;
+      error: null;
+      fieldErrors: ManualLeadFieldErrors;
+      lead: {
+        id: string;
+        businessName: string;
+        phone: string | null;
+        website: string | null;
+        searchJobId: null;
+        origin: "MANUAL";
+        sourcePlatform: null;
+        sourceUrl: null;
+        commercialStatus: "new";
+        outreachStatus: "pending_review";
+      };
+      activity: LeadActivityItem;
+    }
+  | {
+      ok: false;
+      error: string;
+      fieldErrors: ManualLeadFieldErrors;
+      lead: null;
+      activity: null;
+    };
 
 function revalidateLeadWorkspacePaths() {
   revalidatePath("/");
@@ -344,6 +377,118 @@ export async function runGoogleMapsSearchAction(
     };
   } finally {
     await prisma.$disconnect();
+  }
+}
+
+export async function createManualLeadAction(
+  input: ManualLeadInput
+): Promise<CreateManualLeadResult> {
+  const validation = validateManualLeadInput(input);
+
+  if (!validation.ok) {
+    return {
+      ok: false,
+      error: "Revisá los datos del contacto manual.",
+      fieldErrors: validation.fieldErrors,
+      lead: null,
+      activity: null,
+    };
+  }
+
+  const normalized = validation.data;
+  const commercialData = enrichLeadCommercialData({
+    query: "",
+    businessName: normalized.businessName,
+    category: normalized.category,
+    website: normalized.website,
+    phone: normalized.phone,
+    rating: null,
+    reviewsCount: null,
+  });
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const lead = await tx.lead.create({
+        data: {
+          searchJobId: null,
+          businessName: normalized.businessName,
+          category: normalized.category,
+          address: normalized.address,
+          city: normalized.city,
+          phone: normalized.phone,
+          website: normalized.website,
+          websiteType: commercialData.websiteType,
+          rating: null,
+          reviewsCount: null,
+          sourceUrl: null,
+          sourcePlatform: null,
+          origin: "MANUAL",
+          commercialStatus: "new",
+          score: commercialData.score,
+          scoreReasons: commercialData.scoreReasons,
+          businessType: commercialData.businessType,
+          suggestedOffer: commercialData.suggestedOffer,
+          offerReason: commercialData.offerReason,
+          outreachStatus: "pending_review",
+          outreachChannel: commercialData.outreachChannel,
+          readyForAutomation: commercialData.readyForAutomation,
+        },
+        select: {
+          id: true,
+          businessName: true,
+          phone: true,
+          website: true,
+          searchJobId: true,
+          origin: true,
+          sourcePlatform: true,
+          sourceUrl: true,
+          commercialStatus: true,
+          outreachStatus: true,
+        },
+      });
+
+      const activity = await tx.leadActivity.create({
+        data: {
+          leadId: lead.id,
+          type: "manual_created",
+          label: "Lead manual creado",
+          metadata: JSON.stringify({ origin: "MANUAL" }),
+        },
+      });
+
+      return {
+        lead,
+        activity: toLeadActivityItem(activity),
+      };
+    });
+
+    revalidateLeadWorkspacePaths();
+
+    return {
+      ok: true,
+      error: null,
+      fieldErrors: {},
+      lead: {
+        ...result.lead,
+        searchJobId: null,
+        origin: "MANUAL",
+        sourcePlatform: null,
+        sourceUrl: null,
+        commercialStatus: "new",
+        outreachStatus: "pending_review",
+      },
+      activity: result.activity,
+    };
+  } catch (error) {
+    console.error("[action] createManualLeadAction error:", error);
+
+    return {
+      ok: false,
+      error: "No se pudo crear el lead manual.",
+      fieldErrors: {},
+      lead: null,
+      activity: null,
+    };
   }
 }
 

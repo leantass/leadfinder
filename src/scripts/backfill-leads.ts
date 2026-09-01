@@ -7,6 +7,7 @@ async function run() {
   console.log("[backfill] Iniciando backfill de leads...");
 
   let processed = 0;
+  let skippedWithoutSearchJob = 0;
 
   while (true) {
     const leads = await prisma.lead.findMany({
@@ -36,6 +37,14 @@ async function run() {
     }
 
     for (const lead of leads) {
+      if (!lead.searchJob) {
+        skippedWithoutSearchJob += 1;
+        console.log(
+          `[backfill] Lead ${lead.id} omitido: no tiene SearchJob asociado.`
+        );
+        continue;
+      }
+
       const commercialData = enrichLeadCommercialData({
         query: lead.searchJob.query,
         businessName: lead.businessName,
@@ -68,7 +77,9 @@ async function run() {
     console.log(`[backfill] Leads procesados: ${processed}`);
   }
 
-  console.log("[backfill] Backfill completado.");
+  console.log(
+    `[backfill] Backfill completado. Leads sin SearchJob omitidos: ${skippedWithoutSearchJob}.`
+  );
 }
 
 run()

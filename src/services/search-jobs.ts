@@ -45,6 +45,7 @@ export async function runGoogleMapsSearchJob(query: string, maxResults = 3) {
             reviewsCount: lead.reviewsCount,
             sourceUrl: lead.sourceUrl,
             sourcePlatform: "google_maps",
+            origin: "SEARCH",
             score: commercialData.score,
             scoreReasons: commercialData.scoreReasons,
             businessType: commercialData.businessType,
