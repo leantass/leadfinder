@@ -16,7 +16,7 @@ LeadFinder organiza oportunidades comerciales desde su adquisición hasta su seg
 
 Funciona la adquisición desde Google Maps, la persistencia y enriquecimiento de leads, y el trabajo individual en `/leads`: lista con query/filtros/orden/paginación server-side, estados, drawer, notas, seguimiento e historial persistido. `/operations` permite revisar y ejecutar runs, aplicar decisiones, configurar políticas de schedules y consultar ejecuciones del scheduler.
 
-Los módulos Sources, Scrapers, Campaigns y Settings son bases visuales intencionales, no administradores completos. Reports usa datos reales pero aún no es un módulo analítico completo. No existen campañas reales, importación/manual de contactos, múltiples fuentes ni suite de tests.
+Los módulos Sources, Scrapers, Campaigns y Settings son bases visuales intencionales, no administradores completos. Reports usa datos reales pero aún no es un módulo analítico completo. No existen campañas reales, importación/manual de contactos, múltiples fuentes ni suite funcional completa.
 
 ## 4. Arquitectura
 
@@ -44,7 +44,21 @@ El contrato de datos está en `prisma/schema.prisma`. `workspace-data.ts` concen
 
 ## 6. Deuda técnica y riesgos conocidos
 
-- No hay script ni suite de tests automatizados.
+- Autenticación 1.0: único operador mediante `/login`, sin registro ni multiusuario.
+  Configurar `LEADFINDER_ADMIN_USER`, `LEADFINDER_ADMIN_PASSWORD_HASH`,
+  `LEADFINDER_SESSION_SECRET` y `LEADFINDER_APP_ORIGIN` según README.
+- Sesión firmada de 8 horas absolutas; logout borra cookie. Revocación global
+  mediante rotación de la clave; sin revocación individual persistida.
+- Proxy protege navegación; las 12 acciones y las lecturas privadas validan
+  sesión en servidor. Las operaciones manuales siguen disponibles.
+- Cron sin sesión humana: exige `AUTOMATION_RUNNER_SECRET`; `CRON_SECRET`
+  debe coincidir en deployment. La clave de sesión es independiente.
+- No se crean schedules durante lecturas. Cero schedules produce estado vacío;
+  no se implementó creación explícita ni se modificaron migraciones.
+- Pendiente de hosting antes de exposición pública: rate limit de POST
+  `/api/auth/login`. No existe rate limit en memoria dentro de la aplicación.
+
+- `npm run test:auth` cubre autenticacion con dependencias de negocio sustituidas; no es una suite funcional completa.
 - `npm run build` requiere `DATABASE_URL`, porque las páginas del servidor inicializan Prisma; una base no migrada o inaccesible impide validar el build completo.
 - El scraper depende de selectores de Google Maps y de Playwright; puede romperse si el sitio cambia o el entorno de deployment no permite navegador.
 - El cron está configurado, pero su frecuencia efectiva depende del plan y la configuración de Vercel.

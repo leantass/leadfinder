@@ -1,5 +1,7 @@
 "use server";
 
+import { requireAuthenticatedOperator } from "@/lib/auth/operator";
+
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 
@@ -227,6 +229,7 @@ async function persistLeadChanges({
 export async function createAutomationRunAction(
   input: CreateAutomationRunInput
 ) {
+  await requireAuthenticatedOperator();
   try {
     const result = await createAutomationRunRecord({
       leadIds: input.leadIds,
@@ -254,6 +257,7 @@ export async function createAutomationRunAction(
 }
 
 export async function executeAutomationScheduleAction(scheduleId: string) {
+  await requireAuthenticatedOperator();
   try {
     const result = await executeAutomationScheduleById(scheduleId);
 
@@ -274,6 +278,7 @@ export async function executeAutomationScheduleAction(scheduleId: string) {
 }
 
 export async function runDueAutomationSchedulesAction() {
+  await requireAuthenticatedOperator();
   try {
     const result = await runDueAutomationSchedules();
 
@@ -310,6 +315,7 @@ export async function updateAutomationSchedulePolicyAction(input: {
   timezone: string;
   maxItemsPerRun: number;
 }) {
+  await requireAuthenticatedOperator();
   try {
     const result = await updateAutomationSchedulePolicy(input);
 
@@ -331,6 +337,7 @@ export async function runGoogleMapsSearchAction(
   _prevState: SearchActionState,
   formData: FormData
 ): Promise<SearchActionState> {
+  await requireAuthenticatedOperator();
   const rawQuery = formData.get("query");
   const rawMaxResults = formData.get("maxResults");
 
@@ -383,6 +390,7 @@ export async function runGoogleMapsSearchAction(
 export async function createManualLeadAction(
   input: ManualLeadInput
 ): Promise<CreateManualLeadResult> {
+  await requireAuthenticatedOperator();
   const validation = validateManualLeadInput(input);
 
   if (!validation.ok) {
@@ -493,6 +501,7 @@ export async function createManualLeadAction(
 }
 
 export async function markLeadsAsReadyForSalesAction(leadIds: string[]) {
+  await requireAuthenticatedOperator();
   if (!Array.isArray(leadIds) || leadIds.length === 0) {
     return {
       ok: false,
@@ -554,6 +563,7 @@ export async function markLeadsAsReadyForSalesAction(leadIds: string[]) {
 }
 
 export async function markLeadsAsMarkedAction(leadIds: string[]) {
+  await requireAuthenticatedOperator();
   if (!Array.isArray(leadIds) || leadIds.length === 0) {
     return {
       ok: false,
@@ -615,6 +625,7 @@ export async function markLeadsAsMarkedAction(leadIds: string[]) {
 }
 
 export async function addLeadNoteAction(leadId: string, content: string) {
+  await requireAuthenticatedOperator();
   if (!leadId || !content || content.trim() === "") {
     return {
       ok: false,
@@ -674,6 +685,7 @@ export async function updateLeadCommercialStatusAction(
   leadId: string,
   status: string
 ) {
+  await requireAuthenticatedOperator();
   if (!leadId || !status) {
     return {
       ok: false,
@@ -714,6 +726,7 @@ export async function saveLeadFollowUpAction(
   leadId: string,
   followUp: LeadFollowUpInput
 ) {
+  await requireAuthenticatedOperator();
   if (!leadId) {
     return {
       ok: false,
@@ -759,6 +772,7 @@ export async function saveLeadFollowUpAction(
 export async function applyLeadAutomationDecisionAction(
   input: ApplyAutomationDecisionInput
 ) {
+  await requireAuthenticatedOperator();
   try {
     if (!input.runItemId) {
       return {

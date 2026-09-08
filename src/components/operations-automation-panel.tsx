@@ -843,7 +843,7 @@ export function OperationsAutomationPanel({
 
         {schedulesState.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-zinc-700 bg-zinc-950/30 px-4 py-5 text-sm text-zinc-500">
-            Todavía no hay schedules configurados.
+            Todavía no hay schedules configurados. Esta vista no crea schedules automáticamente.
           </div>
         ) : (
           <div className="mt-4 space-y-2">

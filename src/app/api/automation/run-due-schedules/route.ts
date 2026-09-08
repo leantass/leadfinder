@@ -1,3 +1,4 @@
+import { secretsEqual } from "@/lib/auth/crypto";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
@@ -55,7 +56,7 @@ function validateRunnerSecret(request: Request) {
     };
   }
 
-  if (!providedSecret || providedSecret !== expectedSecret) {
+  if (!providedSecret || !secretsEqual(providedSecret, expectedSecret)) {
     return {
       ok: false as const,
       response: getUnauthorizedResponse(),

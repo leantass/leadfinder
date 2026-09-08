@@ -39,13 +39,51 @@ Partí de [`.env.example`](./.env.example). Solo se consumen estas variables:
 
 | Variable | Uso |
 | --- | --- |
+| `LEADFINDER_ADMIN_USER` | Identidad del unico operador administrador. |
+| `LEADFINDER_ADMIN_PASSWORD_HASH` | Hash scrypt; nunca password plano. |
+| `LEADFINDER_SESSION_SECRET` | Clave independiente de 32 bytes aleatorios, codificada como 64 caracteres hex. |
+| `LEADFINDER_APP_ORIGIN` | Origen exacto del navegador, sin slash final; HTTPS en produccion. |
 | `DATABASE_URL` | Conexión PostgreSQL usada por Prisma y la aplicación. |
 | `AUTOMATION_RUNNER_SECRET` | Protege `GET` y `POST /api/automation/run-due-schedules`. |
-| `CRON_SECRET` | Se configura en Vercel para que su cron envíe `Authorization: Bearer <CRON_SECRET>`. Usar el mismo valor que `AUTOMATION_RUNNER_SECRET` simplifica la operación. |
+| `CRON_SECRET` | Se configura en Vercel para que su cron envíe `Authorization: Bearer <CRON_SECRET>`. Debe coincidir con `AUTOMATION_RUNNER_SECRET` en el deployment. |
 
 No hay claves de terceros configuradas en el código. La captura de Google Maps usa Playwright y puede requerir que los navegadores de Playwright estén instalados: `npx playwright install`.
 
 ## Validaciones
+
+### Acceso privado de operador
+
+Configurar las cuatro variables `LEADFINDER_*` antes de entrar por `/login`.
+No hay registro ni multiusuario. Las operaciones manuales se conservan y las
+12 Server Actions comprueban sesión antes de ejecutar lógica de negocio.
+Las lecturas de páginas también comprueban sesión; el helper de IDs utilizado
+exclusivamente por el runner depende de la autorización de su entrada.
+
+El hash usa `scrypt$131072$8$1$<salt hex de 32 caracteres>$<hash hex de 128 caracteres>`.
+Generarlo localmente con `crypto.scrypt`, salt aleatorio de 16 bytes, salida de
+64 bytes y `maxmem: 268435456`, recibiendo la contraseña por entrada oculta o
+gestor de secretos, nunca como argumento de terminal ni en código versionado.
+Generar `LEADFINDER_SESSION_SECRET` con `crypto.randomBytes(32).toString("hex")`.
+Los placeholders vacíos fallan cerrado; no son credenciales utilizables.
+
+La cookie firmada HS256 dura 8 horas absolutas, es HttpOnly y SameSite=Lax;
+en producción usa Secure, prefijo `__Host-`, Path=/ y ningún Domain.
+“Cerrar sesión” borra la cookie mediante POST con comprobación de origen.
+Una copia del token permanece válida hasta vencer; para revocar todas las
+sesiones, rotar la clave de sesión. No hay tabla Prisma de usuarios/sesiones.
+
+El cron sigue independiente del login y requiere el secret del runner.
+`CRON_SECRET` y `AUTOMATION_RUNNER_SECRET` deben coincidir en Vercel; la clave
+de sesión debe ser distinta. Consultar schedules vacíos devuelve `[]`, sin
+crear un schedule ni habilitar autoaplicación.
+
+Antes de exposición pública, configurar rate limit real en el hosting sobre
+POST `/api/auth/login` (inicio recomendado: 5 intentos/minuto por IP y un límite
+agregado ajustado al único operador). Verificar disponibilidad en el plan y
+probar el rechazo. No se implementa un contador en memoria ni se configura
+el hosting automáticamente. No registrar passwords, cookies ni tokens.
+
+### Comandos
 
 ```bash
 npx prisma validate
@@ -53,6 +91,7 @@ npx prisma generate
 npx tsc --noEmit
 npm run lint
 npm run build
+npm run test:auth
 ```
 
 `npm run build` y las páginas que leen datos requieren una `DATABASE_URL` válida porque el cliente Prisma se crea en el servidor. No hay suite de tests automatizados ni script `test` en este repositorio actualmente.
@@ -100,6 +139,6 @@ curl -X POST http://localhost:3000/api/automation/run-due-schedules \
 
 ## Deployment
 
-Configurar las tres variables de entorno en el proveedor, ejecutar las migraciones contra la base objetivo y desplegar la aplicación. El cron no reemplaza las migraciones ni crea la base. Revisar que la plataforma de hosting soporte la ejecución del scraper/Playwright si se pretenden lanzar búsquedas desde producción.
+Configurar las variables de entorno documentadas en el proveedor, ejecutar las migraciones contra la base objetivo y desplegar la aplicación. El cron no reemplaza las migraciones ni crea la base. Revisar que la plataforma de hosting soporte la ejecución del scraper/Playwright si se pretenden lanzar búsquedas desde producción.
 
 Para continuidad del proyecto, leer [ROADMAP.md](./ROADMAP.md) y [HANDOFF.md](./HANDOFF.md) después de este documento.

@@ -1,3 +1,5 @@
+import "server-only";
+import { requireAuthenticatedOperator } from "@/lib/auth/operator";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -588,6 +590,7 @@ function normalizeLeadListParams({
 }
 
 export async function getWorkspaceShellData() {
+  await requireAuthenticatedOperator();
   const [
     leadCount,
     searchJobCount,
@@ -713,6 +716,7 @@ export async function getWorkspaceShellData() {
 }
 
 export async function getLatestSearchJobs(limit = 5) {
+  await requireAuthenticatedOperator();
   const jobs = await prisma.searchJob.findMany({
     orderBy: {
       createdAt: "desc",
@@ -743,6 +747,7 @@ export async function getPaginatedLeadsForPanel({
   filter = "all",
   sort = "score-desc",
 }: LeadListParams) {
+  await requireAuthenticatedOperator();
   const safeParams = normalizeLeadListParams({
     page,
     pageSize,
@@ -802,6 +807,8 @@ export async function getPaginatedLeadsForPanel({
 }
 
 export async function getLeadIdsForListContext(params: LeadListParams) {
+  // Internal runner query only. Its callers authorize via operator session or
+  // runner secret; requiring a human cookie here would break Vercel Cron.
   const safeParams = normalizeLeadListParams(params);
   const where = buildLeadListWhere({
     q: safeParams.q,
@@ -834,6 +841,7 @@ export async function getLatestAutomationRunForContext({
   filter = "all",
   sort = "score-desc",
 }: LeadListParams) {
+  await requireAuthenticatedOperator();
   const safeParams = normalizeLeadListParams({
     page,
     pageSize,
@@ -877,6 +885,7 @@ export async function getLatestAutomationRunForContext({
 }
 
 export async function getAutomationRunById(runId: string) {
+  await requireAuthenticatedOperator();
   if (!runId || runId.trim() === "") {
     return null;
   }
@@ -909,6 +918,7 @@ export async function getAutomationRunById(runId: string) {
 }
 
 export async function getRecentAutomationRuns(limit = 6) {
+  await requireAuthenticatedOperator();
   const runs = await prisma.automationRun.findMany({
     orderBy: {
       createdAt: "desc",
@@ -928,7 +938,8 @@ export async function getRecentAutomationRuns(limit = 6) {
 }
 
 export async function getAutomationSchedules() {
-  let schedules = await prisma.automationSchedule.findMany({
+  await requireAuthenticatedOperator();
+  const schedules = await prisma.automationSchedule.findMany({
     select: automationScheduleSelect,
     orderBy: [
       {
@@ -940,36 +951,11 @@ export async function getAutomationSchedules() {
     ],
   });
 
-  if (schedules.length === 0) {
-    const defaultSchedule = await prisma.automationSchedule.create({
-      select: automationScheduleSelect,
-      data: {
-        name: "Revision operativa principal",
-        isEnabled: true,
-        runEveryMinutes: 60,
-        query: "",
-        filter: "all",
-        sort: "score-desc",
-        page: 1,
-        pageSize: 20,
-        autoApplySafe: true,
-        autoApplyMinConfidence: "high",
-        autoApplyActions: ["contact_now", "follow_up", "send_to_sales"],
-        respectQuietHours: false,
-        runWindowStart: "09:00",
-        runWindowEnd: "21:00",
-        timezone: "America/Buenos_Aires",
-        maxItemsPerRun: 20,
-      },
-    });
-
-    schedules = [defaultSchedule];
-  }
-
   return schedules.map((schedule) => normalizeAutomationSchedule(schedule));
 }
 
 export async function getLatestAutomationSchedulerExecution() {
+  await requireAuthenticatedOperator();
   const execution = await prisma.automationSchedulerExecution.findFirst({
     orderBy: {
       createdAt: "desc",
@@ -981,6 +967,7 @@ export async function getLatestAutomationSchedulerExecution() {
 }
 
 export async function getRecentAutomationSchedulerExecutions(limit = 6) {
+  await requireAuthenticatedOperator();
   const executions = await prisma.automationSchedulerExecution.findMany({
     orderBy: {
       createdAt: "desc",
@@ -995,6 +982,7 @@ export async function getRecentAutomationSchedulerExecutions(limit = 6) {
 }
 
 export async function getLatestLeadsForPanel(limit = 20) {
+  await requireAuthenticatedOperator();
   const { leads } = await getPaginatedLeadsForPanel({
     page: 1,
     pageSize: limit,
@@ -1004,6 +992,7 @@ export async function getLatestLeadsForPanel(limit = 20) {
 }
 
 export async function getDashboardSummaryData() {
+  await requireAuthenticatedOperator();
   const [urgentLeadsCount, hotWithoutRealWebsiteCount, followUpDueTodayCount] =
     await Promise.all([
       prisma.lead.count({

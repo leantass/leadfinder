@@ -55,7 +55,7 @@ export default async function SettingsPage() {
           {
             label: "Politicas activas",
             value: `${activeSchedules} schedules`,
-            detail: "Ya existen configuraciones vivas que justifican este modulo.",
+            detail: schedules.length ? "Configuraciones existentes del workspace." : "No hay schedules configurados. Esta vista no crea schedules.",
           },
           {
             label: "Seguridad",
