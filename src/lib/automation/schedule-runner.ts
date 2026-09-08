@@ -3,6 +3,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { acquireScheduleLease, ScheduleLease, ScheduleLockLostError } from "@/lib/automation/schedule-lock";
 import {
   getNormalizedAutomationAutoApplyPolicy,
   getLeadAutomationActionLabel,
@@ -142,7 +143,7 @@ const automationSchedulerExecutionSelect = {
   finishedAt: true,
 } satisfies Prisma.AutomationSchedulerExecutionSelect;
 
-const SCHEDULE_LOCK_STALE_MS = 15 * 60 * 1000;
+type LockedSchedule = ScheduleRecord & { lease: ScheduleLease };
 
 export type ExecuteAutomationScheduleResult = {
   ok: boolean;
@@ -295,10 +296,6 @@ function normalizeAutomationSchedulerExecutionRecord(
     startedAt: execution.startedAt.toISOString(),
     finishedAt: execution.finishedAt ? execution.finishedAt.toISOString() : null,
   };
-}
-
-function getScheduleLockCutoff(now = new Date()) {
-  return new Date(now.getTime() - SCHEDULE_LOCK_STALE_MS);
 }
 
 function getScheduleExecutionWindowAt(schedule: ScheduleRecord) {
@@ -466,55 +463,29 @@ async function updateSchedulerExecutionRecord(
   return normalizeAutomationSchedulerExecutionRecord(execution);
 }
 
-async function tryLockAutomationSchedule(scheduleId: string, now = new Date()) {
-  const lockResult = await prisma.automationSchedule.updateMany({
-    where: {
-      id: scheduleId,
-      isEnabled: true,
-      OR: [
-        {
-          lockedAt: null,
-        },
-        {
-          lockedAt: {
-            lt: getScheduleLockCutoff(now),
-          },
-        },
-      ],
-    },
-    data: {
-      lockedAt: now,
-    },
-  });
-
-  if (lockResult.count === 0) {
-    return null;
+async function tryLockAutomationSchedule(scheduleId: string): Promise<LockedSchedule | null> {
+  const lease = await acquireScheduleLease(scheduleId);
+  if (!lease) return null;
+  lease.start();
+  try {
+    const schedule = await prisma.$transaction(async (tx) => {
+      await lease.guard(tx);
+      return tx.automationSchedule.findUniqueOrThrow({
+        where: { id: scheduleId }, select: automationScheduleSelect,
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+    return { ...schedule, lease };
+  } catch (error) {
+    await lease.release().catch(() => false);
+    throw error;
   }
-
-  return prisma.automationSchedule.findUniqueOrThrow({
-    where: {
-      id: scheduleId,
-    },
-    select: automationScheduleSelect,
-  });
 }
 
 async function releaseAutomationScheduleLock(
-  scheduleId: string,
-  options?: {
-    lastRunAt?: Date | null | undefined;
-  }
+  schedule: LockedSchedule,
+  options?: { lastRunAt?: Date | null }
 ) {
-  await prisma.automationSchedule.update({
-    where: {
-      id: scheduleId,
-    },
-    data: {
-      lockedAt: null,
-      lastRunAt:
-        options && options.lastRunAt !== undefined ? options.lastRunAt ?? null : undefined,
-    },
-  });
+  if (!await schedule.lease.release(options?.lastRunAt)) throw new ScheduleLockLostError();
 }
 
 export async function createAutomationRunRecord({
@@ -523,7 +494,8 @@ export async function createAutomationRunRecord({
   source = "manual",
   scheduleId = null,
   executionKey = null,
-}: CreateAutomationRunInput) {
+}: CreateAutomationRunInput, lease?: ScheduleLease) {
+  lease?.assertActive();
   const normalizedLeadIds = Array.isArray(leadIds)
     ? leadIds.filter((leadId) => typeof leadId === "string" && leadId.trim() !== "")
     : [];
@@ -601,7 +573,7 @@ export async function createAutomationRunRecord({
       : normalizedLeadIds.length;
 
   try {
-    const run = await prisma.automationRun.create({
+    const createRun = (tx: Prisma.TransactionClient) => tx.automationRun.create({
       data: {
         source,
         scheduleId,
@@ -645,6 +617,12 @@ export async function createAutomationRunRecord({
         },
       },
     });
+    const run = lease ? await prisma.$transaction(async (tx) => {
+      await lease.guard(tx);
+      const created = await createRun(tx);
+      await lease.guard(tx);
+      return created;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }) : await createRun(prisma);
 
     return {
       ok: true,
@@ -704,7 +682,7 @@ export async function applyAutomationRunItemRecord({
   runItemId,
   mode = "single",
   executeWhatsApp = false,
-}: ApplyAutomationRunItemInput) {
+}: ApplyAutomationRunItemInput, lease?: ScheduleLease) {
   let runItemContext: { id: string; runId: string } | null = null;
 
   try {
@@ -725,6 +703,7 @@ export async function applyAutomationRunItemRecord({
       };
     }
     return await prisma.$transaction(async (tx) => {
+      if (lease) await lease.guard(tx);
       await lockAutomationRun(tx, context.runId);
       const runItem = await tx.automationRunItem.findUnique({
         where: { id: runItemId, runId: context.runId },
@@ -932,6 +911,7 @@ export async function applyAutomationRunItemRecord({
         },
       });
 
+      if (lease) await lease.guard(tx);
       return {
         ok: true,
         error: null,
@@ -949,6 +929,7 @@ export async function applyAutomationRunItemRecord({
         const currentRunItemContext = runItemContext;
 
         const updatedRun = await prisma.$transaction(async (tx) => {
+          if (lease) await lease.guard(tx);
           await lockAutomationRun(tx, currentRunItemContext.runId);
           const currentItem = await tx.automationRunItem.findUnique({
             where: { id: currentRunItemContext.id, runId: currentRunItemContext.runId },
@@ -971,6 +952,7 @@ export async function applyAutomationRunItemRecord({
             }
           }
 
+          if (lease) await lease.guard(tx);
           return tx.automationRun.findUniqueOrThrow({
             where: { id: currentRunItemContext.runId },
             include: {
@@ -1022,7 +1004,7 @@ export async function applyAutomationRunItemRecord({
 }
 
 async function executeAutomationScheduleRecord(
-  schedule: ScheduleRecord,
+  schedule: LockedSchedule,
   options?: {
     executionKey?: string | null;
   }
@@ -1033,6 +1015,7 @@ async function executeAutomationScheduleRecord(
     processedLeadCount?: number;
   }
 > {
+  schedule.lease.assertActive();
   const autoApplyPolicy = getNormalizedAutomationAutoApplyPolicy({
     enabled: schedule.autoApplySafe,
     minConfidence: schedule.autoApplyMinConfidence as AutomationConfidence,
@@ -1064,7 +1047,7 @@ async function executeAutomationScheduleRecord(
     source: "schedule",
     scheduleId: schedule.id,
     executionKey: options?.executionKey ?? null,
-  });
+  }, schedule.lease);
 
   if (!runResult.ok || !runResult.run) {
     return {
@@ -1088,11 +1071,13 @@ async function executeAutomationScheduleRecord(
     );
 
     for (const item of autoApplicableItems) {
+      schedule.lease.assertActive();
       const applyResult = await applyAutomationRunItemRecord({
         runItemId: item.id,
         mode: "supervised_auto",
         executeWhatsApp: false,
-      });
+      }, schedule.lease);
+      schedule.lease.assertActive();
 
       if (applyResult.automationRun) {
         latestRun = applyResult.automationRun;
@@ -1134,7 +1119,7 @@ export async function executeAutomationScheduleById(scheduleId: string) {
     } satisfies ExecuteAutomationScheduleResult;
   }
 
-  let lockedSchedule: ScheduleRecord | null = null;
+  let lockedSchedule: LockedSchedule | null = null;
 
   try {
     lockedSchedule = await tryLockAutomationSchedule(scheduleId);
@@ -1150,7 +1135,7 @@ export async function executeAutomationScheduleById(scheduleId: string) {
     }
 
     if (!isAutomationScheduleWithinRunWindow(lockedSchedule)) {
-      await releaseAutomationScheduleLock(lockedSchedule.id);
+      await releaseAutomationScheduleLock(lockedSchedule);
 
       return {
         ok: false,
@@ -1163,7 +1148,7 @@ export async function executeAutomationScheduleById(scheduleId: string) {
 
     const result = await executeAutomationScheduleRecord(lockedSchedule);
 
-    await releaseAutomationScheduleLock(lockedSchedule.id, {
+    await releaseAutomationScheduleLock(lockedSchedule, {
       lastRunAt: result.ok ? new Date() : undefined,
     });
 
@@ -1186,7 +1171,7 @@ export async function executeAutomationScheduleById(scheduleId: string) {
     console.error("[automation] executeAutomationScheduleById error:", error);
 
     if (lockedSchedule) {
-      await releaseAutomationScheduleLock(lockedSchedule.id);
+      await releaseAutomationScheduleLock(lockedSchedule).catch(() => undefined);
     }
 
     return {
@@ -1196,6 +1181,8 @@ export async function executeAutomationScheduleById(scheduleId: string) {
       run: null,
       autoAppliedCount: 0,
     } satisfies ExecuteAutomationScheduleResult;
+  } finally {
+    await lockedSchedule?.lease.stop();
   }
 }
 
@@ -1285,15 +1272,15 @@ export async function updateAutomationSchedulePolicy({
 }
 
 async function processDueAutomationSchedule(
-  schedule: ScheduleRecord,
-  now: Date
+  schedule: ScheduleRecord
 ): Promise<{
   schedule: AutomationSchedule | null;
   run: AutomationRun | null;
   autoAppliedCount: number;
   executionResult: RunDueAutomationSchedulesResult["executionResults"][number];
 }> {
-  const lockedSchedule = await tryLockAutomationSchedule(schedule.id, now);
+  const lockedSchedule = await tryLockAutomationSchedule(schedule.id);
+  const now = new Date();
 
   if (!lockedSchedule) {
     return {
@@ -1318,7 +1305,7 @@ async function processDueAutomationSchedule(
     const normalizedLockedSchedule = normalizeAutomationScheduleRecord(lockedSchedule);
 
     if (!isAutomationScheduleDue(normalizedLockedSchedule, now)) {
-      await releaseAutomationScheduleLock(lockedSchedule.id);
+      await releaseAutomationScheduleLock(lockedSchedule);
 
       return {
         schedule: normalizedLockedSchedule,
@@ -1339,7 +1326,7 @@ async function processDueAutomationSchedule(
     }
 
     if (!isAutomationScheduleWithinRunWindow(normalizedLockedSchedule, now)) {
-      await releaseAutomationScheduleLock(lockedSchedule.id);
+      await releaseAutomationScheduleLock(lockedSchedule);
 
       return {
         schedule: normalizedLockedSchedule,
@@ -1365,7 +1352,7 @@ async function processDueAutomationSchedule(
     });
 
     if (!result.ok) {
-      await releaseAutomationScheduleLock(lockedSchedule.id);
+      await releaseAutomationScheduleLock(lockedSchedule);
 
       return {
         schedule: result.schedule,
@@ -1387,7 +1374,7 @@ async function processDueAutomationSchedule(
 
     const coveredAt = result.run?.createdAt ? new Date(result.run.createdAt) : now;
 
-    await releaseAutomationScheduleLock(lockedSchedule.id, {
+    await releaseAutomationScheduleLock(lockedSchedule, {
       lastRunAt: coveredAt,
     });
 
@@ -1418,7 +1405,7 @@ async function processDueAutomationSchedule(
     };
   } catch (error) {
     console.error("[automation] processDueAutomationSchedule error:", error);
-    await releaseAutomationScheduleLock(lockedSchedule.id);
+    await releaseAutomationScheduleLock(lockedSchedule).catch(() => undefined);
 
     return {
       schedule: normalizeAutomationScheduleRecord(lockedSchedule),
@@ -1439,6 +1426,8 @@ async function processDueAutomationSchedule(
         limitedByMaxItems: false,
       },
     };
+  } finally {
+    await lockedSchedule.lease.stop();
   }
 }
 
@@ -1478,7 +1467,7 @@ export async function runDueAutomationSchedules(): Promise<RunDueAutomationSched
     const executionResults: RunDueAutomationSchedulesResult["executionResults"] = [];
 
     for (const schedule of dueSchedules) {
-      const result = await processDueAutomationSchedule(schedule, now);
+      const result = await processDueAutomationSchedule(schedule);
 
       if (result.schedule) {
         updatedSchedules.push(result.schedule);

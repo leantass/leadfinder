@@ -9,6 +9,7 @@ import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import ts from 'typescript';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { randomBytes } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 // Never accept DATABASE_URL: this suite owns a brand-new cluster, port and DB.
@@ -21,21 +22,41 @@ const compiled = ts.transpileModule(readFileSync(path.join(root, 'src/lib/automa
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
-function load(prisma) {
+function load(prisma, { all = false, list = async () => ({ leadIds: [], hasMore: false }) } = {}) {
   const mocks = {
     'server-only': {}, '@prisma/client': { Prisma }, '@/lib/prisma': { prisma },
-    '@/lib/leads/automation-engine': { getLeadAutomationActionLabel: a => a },
-    '@/lib/leads/lead-ui': { getStatusLabel: s => s }, '@/lib/automation/schedule-utils': {},
+    '@/lib/automation/schedule-lock': {},
+    '@/lib/leads/automation-engine': {
+      getLeadAutomationActionLabel: a => a,
+      getNormalizedAutomationAutoApplyPolicy: p => p,
+      isSafeAutoApplicableAutomationRunItem: i => i.status === 'pending',
+      getLeadAutomationDecision: lead => ({ leadId: lead.id, action: 'discard', confidence: 'high', reason: 'fixture' }),
+    },
+    '@/lib/leads/lead-ui': { getStatusLabel: s => s }, '@/lib/automation/schedule-utils': {
+      getAutomationScheduleMaxItemsPerRun: s => s.maxItemsPerRun,
+      isAutomationScheduleWithinRunWindow: () => true,
+      isAutomationScheduleDue: s => !s.lastRunAt || new Date(s.lastRunAt).getTime() + s.runEveryMinutes * 60000 <= Date.now(),
+    },
     '@/lib/workspace-data': {
+      getLeadIdsForListContext: list,
       automationRunItemLeadSelect: { id: true, commercialStatus: true },
       normalizeAutomationRun: r => ({ ...r, pendingCount: r.decisionCount - r.appliedCount - r.failedCount }),
     },
   };
+  const lockCode = ts.transpileModule(readFileSync(path.join(root, 'src/lib/automation/schedule-lock.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const lockModule = { exports: {} };
+  new Function('require', 'module', 'exports', lockCode)(id => {
+    if (id === 'node:crypto') return { randomBytes };
+    assert.ok(Object.hasOwn(mocks, id), id); return mocks[id];
+  }, lockModule, lockModule.exports);
+  mocks['@/lib/automation/schedule-lock'] = lockModule.exports;
   const compiledModule = { exports: {} };
   new Function('require', 'module', 'exports', 'console', compiled)(id => {
     assert.ok(Object.hasOwn(mocks, id), `Unexpected dependency: ${id}`); return mocks[id];
   }, compiledModule, compiledModule.exports, { error() {} });
-  return compiledModule.exports.applyAutomationRunItemRecord;
+  return all ? { ...compiledModule.exports, ...lockModule.exports } : compiledModule.exports.applyAutomationRunItemRecord;
 }
 
 function deferred() { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; }
@@ -196,6 +217,110 @@ test('PostgreSQL atomic item application in an owned disposable cluster', { skip
       await load(wrapped)({ runItemId: run.items[0].id }); const state = await snapshot(run);
       assert.equal(state.run.items[0].status, 'applied'); assert.equal(state.run.failedCount, 0);
       assert.equal(state.run.appliedCount, 1); assert.equal(state.activities.length, 2);
+    });
+    await t.test('schedule workers compete: loser creates no run or activities', async () => {
+      const lead = await prisma.lead.create({ data: { businessName: 'Schedule fixture' } });
+      const schedule = await prisma.automationSchedule.create({ data: { name: 'Competing fixture', autoApplySafe: true } });
+      const entered = deferred(); const resume = deferred(); let selections = 0;
+      const runner = load(prisma, { all: true, list: async () => {
+        selections++; entered.resolve(); await resume.promise; return { leadIds: [lead.id], hasMore: false };
+      } });
+      const first = runner.executeAutomationScheduleById(schedule.id); await entered.promise;
+      try {
+        const second = await runner.executeAutomationScheduleById(schedule.id);
+        assert.equal(second.ok, false); assert.equal(selections, 1);
+        assert.equal(await prisma.automationRun.count({ where: { scheduleId: schedule.id } }), 0);
+        assert.equal(await prisma.leadActivity.count({ where: { leadId: lead.id } }), 0);
+      } finally { resume.resolve(); }
+      const result = await first; assert.equal(result.ok, true);
+      assert.equal(await prisma.automationRun.count({ where: { scheduleId: schedule.id } }), 1);
+      assert.equal(await prisma.leadActivity.count({ where: { leadId: lead.id } }), 2);
+      assert.ok(!JSON.stringify(result).includes('lockToken'));
+      assert.ok(!JSON.stringify(result).includes('"lease"'));
+      const released = await prisma.automationSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
+      assert.equal(released.lockToken, null); assert.equal(released.lockedAt, null); assert.ok(released.lastRunAt);
+    });
+
+    await t.test('expired/crashed owner cannot renew, release, update lastRunAt or mutate after recovery', async () => {
+      const runner = load(prisma, { all: true });
+      const schedule = await prisma.automationSchedule.create({ data: { name: 'Crash fixture' } });
+      const first = await runner.acquireScheduleLease(schedule.id); assert.ok(first);
+      const old = await prisma.automationSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
+      await prisma.automationSchedule.update({ where: { id: schedule.id }, data: { lockedAt: new Date(Date.now() - 16 * 60000) } });
+      const contenders = await Promise.all([runner.acquireScheduleLease(schedule.id), runner.acquireScheduleLease(schedule.id)]);
+      const owner = contenders.find(Boolean); assert.equal(contenders.filter(Boolean).length, 1);
+      const before = await prisma.automationSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
+      assert.notEqual(before.lockToken, old.lockToken);
+      await assert.rejects(new runner.ScheduleLease(schedule.id, old.lockToken).renew(), runner.ScheduleLockLostError);
+      assert.equal(await new runner.ScheduleLease(schedule.id, old.lockToken).release(new Date()), false);
+      await assert.rejects(prisma.$transaction(tx => first.guard(tx)), runner.ScheduleLockLostError);
+      assert.deepEqual(await prisma.automationSchedule.findUniqueOrThrow({ where: { id: schedule.id } }), before);
+      assert.equal(await owner.release(), true);
+    });
+
+    await t.test('renewal advances lockedAt preserving the current token', async () => {
+      const runner = load(prisma, { all: true });
+      const schedule = await prisma.automationSchedule.create({ data: { name: 'Renew fixture' } });
+      const owner = await runner.acquireScheduleLease(schedule.id);
+      const before = await prisma.automationSchedule.update({ where: { id: schedule.id }, data: { lockedAt: new Date(Date.now() - 60000) } });
+      await owner.renew(); const after = await prisma.automationSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
+      assert.equal(after.lockToken, before.lockToken); assert.ok(after.lockedAt > before.lockedAt);
+      assert.equal(await runner.acquireScheduleLease(schedule.id), null); assert.equal(await owner.release(), true);
+    });
+
+    await t.test('ownership loss between items stops the loop without marking remaining items failed', async () => {
+      const schedule = await prisma.automationSchedule.create({ data: { name: 'Ownership loss fixture', autoApplySafe: true } });
+      const leads = await Promise.all([1, 2, 3].map(() => prisma.lead.create({ data: { businessName: 'Loss fixture' } })));
+      const controller = load(prisma, { all: true }); let takeover; let once = false;
+      const wrapped = {
+        automationSchedule: prisma.automationSchedule, automationRunItem: prisma.automationRunItem,
+        lead: prisma.lead,
+        async $transaction(callback, options) {
+          let applied = false;
+          const result = await prisma.$transaction(tx => callback(new Proxy(tx, {
+            get(target, key) {
+              if (key !== 'automationRunItem') return Reflect.get(target, key);
+              return new Proxy(target.automationRunItem, {
+                get(model, method) {
+                  if (method !== 'updateMany') return Reflect.get(model, method);
+                  return async args => { const result = await model.updateMany(args); if (args.data.status === 'applied' && result.count === 1) applied = true; return result; };
+                },
+              });
+            },
+          })), options);
+          if (applied && !once) {
+            once = true;
+            await prisma.automationSchedule.update({ where: { id: schedule.id }, data: { lockedAt: new Date(Date.now() - 16 * 60000) } });
+            takeover = await controller.acquireScheduleLease(schedule.id);
+          }
+          return result;
+        },
+      };
+      const runner = load(wrapped, { all: true, list: async () => ({ leadIds: leads.map(l => l.id), hasMore: false }) });
+      const result = await runner.executeAutomationScheduleById(schedule.id); assert.equal(result.ok, false); assert.ok(takeover);
+      const run = await prisma.automationRun.findFirstOrThrow({ where: { scheduleId: schedule.id }, include: { items: true } });
+      assert.equal(run.appliedCount, 1); assert.equal(run.failedCount, 0);
+      assert.equal(run.items.filter(i => i.status === 'pending').length, 2);
+      const locked = await prisma.automationSchedule.findUniqueOrThrow({ where: { id: schedule.id } });
+      assert.ok(locked.lockToken); assert.equal(locked.lastRunAt, null);
+      assert.equal(await takeover.release(), true);
+    });
+
+    await t.test('duplicate executionKey recovery uses the new lease and rejects the old one', async () => {
+      const runner = load(prisma, { all: true });
+      const lead = await prisma.lead.create({ data: { businessName: 'Duplicate fixture' } });
+      const schedule = await prisma.automationSchedule.create({ data: { name: 'Duplicate fixture' } });
+      const old = await runner.acquireScheduleLease(schedule.id);
+      const input = { leadIds: [lead.id], source: 'schedule', scheduleId: schedule.id, executionKey: `fixture:${schedule.id}` };
+      const original = await runner.createAutomationRunRecord(input, old); assert.equal(original.ok, true);
+      await prisma.automationSchedule.update({ where: { id: schedule.id }, data: { lockedAt: new Date(Date.now() - 16 * 60000) } });
+      const owner = await runner.acquireScheduleLease(schedule.id);
+      const recovered = await runner.createAutomationRunRecord(input, owner);
+      assert.equal(recovered.wasDuplicate, true); assert.equal(recovered.run.id, original.run.id);
+      assert.equal((await runner.applyAutomationRunItemRecord({ runItemId: original.run.items[0].id }, old)).ok, false);
+      assert.equal((await runner.applyAutomationRunItemRecord({ runItemId: original.run.items[0].id }, owner)).ok, true);
+      assert.equal(await prisma.automationRun.count({ where: { scheduleId: schedule.id } }), 1);
+      assert.equal(await owner.release(), true);
     });
   } finally {
     await prisma?.$disconnect();

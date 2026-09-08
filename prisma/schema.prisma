@@ -169,6 +169,7 @@ model AutomationSchedule {
   maxItemsPerRun Int            @default(20)
   lastRunAt     DateTime?
   lockedAt      DateTime?
+  lockToken     String?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   runs          AutomationRun[]
