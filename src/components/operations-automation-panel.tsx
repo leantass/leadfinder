@@ -616,7 +616,7 @@ export function OperationsAutomationPanel({
 
     const summary = [
       counters.contact_now
-        ? `${counters.contact_now} contacto${counters.contact_now === 1 ? "" : "s"}`
+        ? `${counters.contact_now} ${counters.contact_now === 1 ? "preparación" : "preparaciones"} de contacto`
         : null,
       counters.follow_up
         ? `${counters.follow_up} seguimiento${counters.follow_up === 1 ? "" : "s"}`
@@ -673,7 +673,7 @@ export function OperationsAutomationPanel({
 
     const summary = [
       counters.contact_now
-        ? `${counters.contact_now} contacto${counters.contact_now === 1 ? "" : "s"}`
+        ? `${counters.contact_now} ${counters.contact_now === 1 ? "preparación" : "preparaciones"} de contacto`
         : null,
       counters.follow_up
         ? `${counters.follow_up} seguimiento${counters.follow_up === 1 ? "" : "s"}`
@@ -1485,7 +1485,7 @@ export function OperationsAutomationPanel({
                           >
                             {getRunItemStatusLabel(item.status)}
                           </span>
-                          {item.suggestedStatus ? (
+                          {item.action !== "contact_now" && item.suggestedStatus ? (
                             <span
                               className={`inline-flex rounded-full px-2 py-0.5 text-[10px] ${getStatusBadge(
                                 item.suggestedStatus
@@ -1536,7 +1536,7 @@ export function OperationsAutomationPanel({
                               disabled={busyItemId === item.id || isExecutingQueue}
                               className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-800 bg-emerald-700/80 px-3 text-xs text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                              Ejecutar ahora
+                              Abrir WhatsApp
                             </button>
                           ) : null}
 
