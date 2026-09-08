@@ -94,7 +94,7 @@ npm run build
 npm run test:auth
 ```
 
-`npm run build` y las páginas que leen datos requieren una `DATABASE_URL` válida porque el cliente Prisma se crea en el servidor. No hay suite de tests automatizados ni script `test` en este repositorio actualmente.
+`npm run build` y las páginas que leen datos requieren una `DATABASE_URL` válida porque el cliente Prisma se crea en el servidor. Existe una suite automatizada de seguridad y autenticación mediante `npm run test:auth`; todavía no existe una suite funcional completa del producto.
 
 ## Rutas y módulos
 
