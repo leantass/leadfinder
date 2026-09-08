@@ -550,13 +550,17 @@ export function AppShell({
 
                     <div className="flex h-11 items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-zinc-200">
-                        LT
+                        OP
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-white">
-                          Leandro
+                          Operador
                         </p>
-                        <p className="text-xs text-zinc-500">Operator</p>
+                        <form action="/api/auth/logout" method="post">
+                          <button type="submit" className="text-xs text-zinc-400 hover:text-zinc-100">
+                            Cerrar sesión
+                          </button>
+                        </form>
                       </div>
                     </div>
                   </div>
