@@ -186,7 +186,7 @@ export function getLeadAutomationDecision(lead: LeadItem): LeadAutomationDecisio
             action: "contact_now",
             confidence: lead.score >= 80 ? "high" : "medium",
             reason: "Tiene teléfono, no muestra una web propia útil y el score indica prioridad comercial.",
-            suggestedStatus: "contacted",
+            suggestedStatus: null,
             suggestedChannel: "whatsapp",
             suggestedMessagePreview: buildWhatsAppMessage(lead),
         };

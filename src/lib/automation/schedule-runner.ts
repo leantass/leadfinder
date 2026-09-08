@@ -355,70 +355,69 @@ async function syncAutomationRunCounts(
   });
 }
 
-async function persistLeadChanges({
-  leadId,
-  commercialStatus,
-  followUp,
-  activities = [],
-}: PersistLeadChangesInput): Promise<PersistLeadChangesResult> {
-  return prisma.$transaction(async (tx) => {
-    const leadData: Prisma.LeadUpdateInput = {};
+async function persistLeadChanges(
+  tx: Prisma.TransactionClient,
+  { leadId, commercialStatus, followUp, activities = [] }: PersistLeadChangesInput
+): Promise<PersistLeadChangesResult> {
+  const leadData: Prisma.LeadUpdateInput = {};
 
-    if (typeof commercialStatus === "string" && commercialStatus.trim() !== "") {
-      leadData.commercialStatus = commercialStatus;
-    }
+  if (typeof commercialStatus === "string" && commercialStatus.trim() !== "") {
+    leadData.commercialStatus = commercialStatus;
+  }
 
-    if (followUp) {
-      leadData.followUpNextAction = followUp.nextAction || null;
-      leadData.followUpDueAt = parseFollowUpDate(followUp.dueAt);
-    }
+  if (followUp) {
+    leadData.followUpNextAction = followUp.nextAction || null;
+    leadData.followUpDueAt = parseFollowUpDate(followUp.dueAt);
+  }
 
-    if (Object.keys(leadData).length > 0) {
-      await tx.lead.update({
-        where: { id: leadId },
-        data: leadData,
-      });
-    }
-
-    const createdActivities: LeadActivityItem[] = [];
-
-    for (const activity of activities) {
-      const createdActivity = await tx.leadActivity.create({
-        data: {
-          leadId,
-          type: activity.type,
-          label: activity.label,
-          metadata: activity.metadata ?? null,
-        },
-      });
-
-      createdActivities.push(toLeadActivityItem(createdActivity));
-    }
-
-    const updatedLead = await tx.lead.findUniqueOrThrow({
+  if (Object.keys(leadData).length > 0) {
+    await tx.lead.update({
       where: { id: leadId },
-      select: {
-        commercialStatus: true,
-        followUpNextAction: true,
-        followUpDueAt: true,
+      data: leadData,
+    });
+  }
+
+  const createdActivities: LeadActivityItem[] = [];
+
+  for (const activity of activities) {
+    const createdActivity = await tx.leadActivity.create({
+      data: {
+        leadId,
+        type: activity.type,
+        label: activity.label,
+        metadata: activity.metadata ?? null,
       },
     });
 
-    return {
-      commercialStatus: updatedLead.commercialStatus,
-      followUp: {
-        nextAction: updatedLead.followUpNextAction ?? "",
-        dueAt: updatedLead.followUpDueAt
-          ? updatedLead.followUpDueAt.toISOString()
-          : null,
-      },
-      activities: createdActivities,
-    };
+    createdActivities.push(toLeadActivityItem(createdActivity));
+  }
+
+  const updatedLead = await tx.lead.findUniqueOrThrow({
+    where: { id: leadId },
+    select: {
+      commercialStatus: true,
+      followUpNextAction: true,
+      followUpDueAt: true,
+    },
   });
+
+  return {
+    commercialStatus: updatedLead.commercialStatus,
+    followUp: {
+      nextAction: updatedLead.followUpNextAction ?? "",
+      dueAt: updatedLead.followUpDueAt
+        ? updatedLead.followUpDueAt.toISOString()
+        : null,
+    },
+    activities: createdActivities,
+  };
 }
 
-async function getAutomationRunWithItems(runId: string) {
-  return prisma.automationRun.findUnique({
+async function getAutomationRunWithItems(
+  runId: string,
+  tx: Prisma.TransactionClient = prisma
+) {
+  return tx.automationRun.findUnique({
     where: { id: runId },
     include: {
       schedule: {
@@ -695,6 +694,12 @@ export async function createAutomationRunRecord({
   }
 }
 
+// All item transitions (including failures) acquire this parent lock first.
+// Tagged SQL binds runId as a value; it is never interpolated into SQL text.
+async function lockAutomationRun(tx: Prisma.TransactionClient, runId: string) {
+  await tx.$queryRaw`SELECT "id" FROM "AutomationRun" WHERE "id" = ${runId} FOR UPDATE`;
+}
+
 export async function applyAutomationRunItemRecord({
   runItemId,
   mode = "single",
@@ -703,21 +708,13 @@ export async function applyAutomationRunItemRecord({
   let runItemContext: { id: string; runId: string } | null = null;
 
   try {
-    const runItem = await prisma.automationRunItem.findUnique({
+    // This lookup locates the parent only; eligibility is re-read under its lock.
+    runItemContext = await prisma.automationRunItem.findUnique({
       where: { id: runItemId },
-      select: {
-        id: true,
-        runId: true,
-        leadId: true,
-        action: true,
-        reason: true,
-        suggestedStatus: true,
-        suggestedChannel: true,
-        status: true,
-      },
+      select: { id: true, runId: true },
     });
-
-    if (!runItem) {
+    const context = runItemContext;
+    if (!context) {
       return {
         ok: false,
         error: "No se encontro el item de automatizacion.",
@@ -727,146 +724,179 @@ export async function applyAutomationRunItemRecord({
         automationRun: null,
       };
     }
+    return await prisma.$transaction(async (tx) => {
+      await lockAutomationRun(tx, context.runId);
+      const runItem = await tx.automationRunItem.findUnique({
+        where: { id: runItemId, runId: context.runId },
+        select: {
+          id: true,
+          runId: true,
+          leadId: true,
+          action: true,
+          reason: true,
+          suggestedStatus: true,
+          suggestedChannel: true,
+          status: true,
+        },
+      });
 
-    runItemContext = {
-      id: runItem.id,
-      runId: runItem.runId,
-    };
-
-    if (runItem.status !== "pending") {
-      const currentRun = await getAutomationRunWithItems(runItem.runId);
-
-      return {
-        ok: false,
-        error: "El item de automatizacion ya no esta pendiente.",
-        commercialStatus: null,
-        followUp: null,
-        activities: [] as LeadActivityItem[],
-        automationRun: currentRun ? normalizeAutomationRun(currentRun) : null,
-      };
-    }
-
-    const action = runItem.action as LeadAutoAction;
-    const reason = runItem.reason;
-    const suggestedStatus = runItem.suggestedStatus ?? null;
-    const suggestedChannel = runItem.suggestedChannel ?? null;
-
-    const lead = await prisma.lead.findUnique({
-      where: { id: runItem.leadId },
-      select: {
-        id: true,
-        phone: true,
-        commercialStatus: true,
-        followUpDueAt: true,
-      },
-    });
-
-    if (!lead) {
-      return {
-        ok: false,
-        error: "No se encontro el lead.",
-        commercialStatus: null,
-        followUp: null,
-        activities: [] as LeadActivityItem[],
-        automationRun: null,
-      };
-    }
-
-    let nextStatus = suggestedStatus;
-    let nextFollowUp: LeadFollowUpInput | null = null;
-
-    if (action === "review_manually" && lead.commercialStatus !== "new") {
-      nextStatus = null;
-    }
-
-    if (action === "discard") {
-      nextStatus = "discarded";
-    }
-
-    if (action === "close") {
-      nextStatus = "closed";
-    }
-
-    if (action === "send_to_sales") {
-      nextStatus = "ready";
-    }
-
-    if (action === "follow_up") {
-      nextStatus = "follow-up";
-
-      const today = new Date();
-      const baseDate = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate()
-      );
-
-      if (!lead.followUpDueAt) {
-        baseDate.setDate(baseDate.getDate() + 1);
+      if (!runItem) {
+        return {
+          ok: false,
+          error: "No se encontro el item de automatizacion.",
+          commercialStatus: null,
+          followUp: null,
+          activities: [] as LeadActivityItem[],
+          automationRun: null,
+        };
       }
 
-      nextFollowUp = {
-        nextAction: lead.phone ? "Escribir por WhatsApp" : "Hacer seguimiento",
-        dueAt: baseDate.toISOString().slice(0, 10),
+      runItemContext = {
+        id: runItem.id,
+        runId: runItem.runId,
       };
-    }
 
-    if (action === "contact_now") {
-      nextStatus = "contacted";
-    }
+      if (runItem.status !== "pending") {
+        const currentRun = await getAutomationRunWithItems(runItem.runId, tx);
 
-    const activities: LeadActivityInput[] = [];
+        return {
+          ok: false,
+          error: "El item de automatizacion ya no esta pendiente.",
+          commercialStatus: null,
+          followUp: null,
+          activities: [] as LeadActivityItem[],
+          automationRun: currentRun ? normalizeAutomationRun(currentRun) : null,
+        };
+      }
 
-    if (nextStatus && nextStatus !== lead.commercialStatus) {
-      activities.push(buildStatusChangedActivity(nextStatus));
-    }
+      const action = runItem.action as LeadAutoAction;
+      const reason = runItem.reason;
+      const suggestedStatus = runItem.suggestedStatus ?? null;
+      const suggestedChannel = runItem.suggestedChannel ?? null;
 
-    if (action === "send_to_sales" && lead.commercialStatus !== "ready") {
-      activities.push({
-        type: "sent_to_sales",
-        label: "Lead enviado a ventas",
+      const lead = await tx.lead.findUnique({
+        where: { id: runItem.leadId },
+        select: {
+          id: true,
+          phone: true,
+          commercialStatus: true,
+          followUpDueAt: true,
+        },
       });
-    }
 
-    if (nextFollowUp) {
+      if (!lead) {
+        return {
+          ok: false,
+          error: "No se encontro el lead.",
+          commercialStatus: null,
+          followUp: null,
+          activities: [] as LeadActivityItem[],
+          automationRun: null,
+        };
+      }
+
+      let nextStatus = suggestedStatus;
+      let nextFollowUp: LeadFollowUpInput | null = null;
+
+      if (action === "review_manually" && lead.commercialStatus !== "new") {
+        nextStatus = null;
+      }
+
+      if (action === "discard") {
+        nextStatus = "discarded";
+      }
+
+      if (action === "close") {
+        nextStatus = "closed";
+      }
+
+      if (action === "send_to_sales") {
+        nextStatus = "ready";
+      }
+
+      if (action === "follow_up") {
+        nextStatus = "follow-up";
+
+        const today = new Date();
+        const baseDate = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate()
+        );
+
+        if (!lead.followUpDueAt) {
+          baseDate.setDate(baseDate.getDate() + 1);
+        }
+
+        nextFollowUp = {
+          nextAction: lead.phone ? "Escribir por WhatsApp" : "Hacer seguimiento",
+          dueAt: baseDate.toISOString().slice(0, 10),
+        };
+      }
+
+      if (action === "contact_now") {
+        // Preparing contact is not confirmation, including for legacy suggestions.
+        nextStatus = null;
+      }
+
+      const activities: LeadActivityInput[] = [];
+
+      if (nextStatus && nextStatus !== lead.commercialStatus) {
+        activities.push(buildStatusChangedActivity(nextStatus));
+      }
+
+      if (action === "send_to_sales" && lead.commercialStatus !== "ready") {
+        activities.push({
+          type: "sent_to_sales",
+          label: "Lead enviado a ventas",
+        });
+      }
+
+      if (nextFollowUp) {
+        activities.push({
+          type: "follow_up_updated",
+          label: "Seguimiento actualizado desde automatizacion",
+          metadata: formatFollowUpMetadata(nextFollowUp),
+        });
+      }
+
       activities.push({
-        type: "follow_up_updated",
-        label: "Seguimiento actualizado desde automatizacion",
-        metadata: formatFollowUpMetadata(nextFollowUp),
+        type: "automation_applied",
+        label: `Automatizacion aplicada: ${getLeadAutomationActionLabel(action)}`,
+        metadata: [
+          nextStatus ? `Estado: ${getStatusLabel(nextStatus)}` : null,
+          suggestedChannel ? `Canal: ${suggestedChannel}` : null,
+          `Motivo: ${reason}`,
+          `Modo: ${mode}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
       });
-    }
 
-    activities.push({
-      type: "automation_applied",
-      label: `Automatizacion aplicada: ${getLeadAutomationActionLabel(action)}`,
-      metadata: [
-        nextStatus ? `Estado: ${getStatusLabel(nextStatus)}` : null,
-        suggestedChannel ? `Canal: ${suggestedChannel}` : null,
-        `Motivo: ${reason}`,
-        `Modo: ${mode}`,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-    });
+      if (action === "contact_now") {
+        activities.push({
+          type: "contact_prepared",
+          label: "Contacto preparado desde automatizacion",
+        });
+      }
 
-    if (executeWhatsApp && action === "contact_now") {
-      activities.push({
-        type: "whatsapp_opened",
-        label: "WhatsApp abierto desde automatizacion",
+      if (executeWhatsApp && action === "contact_now") {
+        activities.push({
+          type: "whatsapp_open_requested",
+          label: "Apertura de WhatsApp solicitada desde automatizacion",
+        });
+      }
+
+      const result = await persistLeadChanges(tx, {
+        leadId: lead.id,
+        commercialStatus: nextStatus,
+        followUp: nextFollowUp,
+        activities,
       });
-    }
+      const currentRunItemContext = runItem;
 
-    const result = await persistLeadChanges({
-      leadId: lead.id,
-      commercialStatus: nextStatus,
-      followUp: nextFollowUp,
-      activities,
-    });
-    const currentRunItemContext = runItemContext;
-
-    const updatedRun = await prisma.$transaction(async (tx) => {
-      await tx.automationRunItem.update({
-        where: { id: currentRunItemContext.id },
+      const transition = await tx.automationRunItem.updateMany({
+        where: { id: currentRunItemContext.id, status: "pending" },
         data: {
           status: "applied",
           appliedAt: new Date(),
@@ -874,9 +904,13 @@ export async function applyAutomationRunItemRecord({
         },
       });
 
+      if (transition.count !== 1) {
+        throw new Error("Automation item is no longer pending.");
+      }
+
       await syncAutomationRunCounts(tx, currentRunItemContext.runId);
 
-      return tx.automationRun.findUniqueOrThrow({
+      const updatedRun = await tx.automationRun.findUniqueOrThrow({
         where: { id: currentRunItemContext.runId },
         include: {
           schedule: {
@@ -897,16 +931,16 @@ export async function applyAutomationRunItemRecord({
           },
         },
       });
-    });
 
-    return {
-      ok: true,
-      error: null,
-      commercialStatus: result.commercialStatus,
-      followUp: result.followUp,
-      activities: result.activities,
-      automationRun: normalizeAutomationRun(updatedRun),
-    };
+      return {
+        ok: true,
+        error: null,
+        commercialStatus: result.commercialStatus,
+        followUp: result.followUp,
+        activities: result.activities,
+        automationRun: normalizeAutomationRun(updatedRun),
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   } catch (error) {
     console.error("[automation] applyAutomationRunItemRecord error:", error);
 
@@ -915,18 +949,27 @@ export async function applyAutomationRunItemRecord({
         const currentRunItemContext = runItemContext;
 
         const updatedRun = await prisma.$transaction(async (tx) => {
-          await tx.automationRunItem.update({
-            where: { id: currentRunItemContext.id },
-            data: {
-              status: "failed",
-              failureReason:
-                error instanceof Error
-                  ? error.message.slice(0, 300)
-                  : "Error al aplicar la automatizacion.",
-            },
+          await lockAutomationRun(tx, currentRunItemContext.runId);
+          const currentItem = await tx.automationRunItem.findUnique({
+            where: { id: currentRunItemContext.id, runId: currentRunItemContext.runId },
+            select: { status: true },
           });
+          if (currentItem?.status === "pending") {
+            const transition = await tx.automationRunItem.updateMany({
+              where: { id: currentRunItemContext.id, status: "pending" },
+              data: {
+                status: "failed",
+                failureReason:
+                  error instanceof Error
+                    ? error.message.slice(0, 300)
+                    : "Error al aplicar la automatizacion.",
+              },
+            });
 
-          await syncAutomationRunCounts(tx, currentRunItemContext.runId);
+            if (transition.count === 1) {
+              await syncAutomationRunCounts(tx, currentRunItemContext.runId);
+            }
+          }
 
           return tx.automationRun.findUniqueOrThrow({
             where: { id: currentRunItemContext.runId },
@@ -949,7 +992,7 @@ export async function applyAutomationRunItemRecord({
               },
             },
           });
-        });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 
         return {
           ok: false,
