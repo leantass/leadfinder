@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import {
@@ -44,6 +44,22 @@ import { formatDate, getStatusBadge, getStatusLabel } from "@/lib/leads/lead-ui"
 import { getWhatsAppUrlFromLead } from "@/lib/outreach/whatsapp-message";
 
 type RunItemFilter = "all" | AutomationRunItemStatus;
+
+function subscribeToHydration() {
+  return () => {};
+}
+
+function ScheduleNextRunLabel({ schedule }: { schedule: AutomationSchedule }) {
+  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+
+  // Keep SSR and initial hydration identical before reading the clock or locale.
+  if (!hydrated) {
+    return "Calculando...";
+  }
+
+  const nextRunAt = getAutomationScheduleNextRunAt(schedule);
+  return nextRunAt ? formatDate(nextRunAt.toISOString()) : "Sin programar";
+}
 
 type SchedulePolicyDraft = {
   autoApplySafe: boolean;
@@ -904,12 +920,7 @@ export function OperationsAutomationPanel({
                           </span>
                           {" · "}Próximo:{" "}
                           <span className="text-zinc-300">
-                            {(() => {
-                              const nextRunAt = getAutomationScheduleNextRunAt(schedule);
-                              return nextRunAt
-                                ? formatDate(nextRunAt.toISOString())
-                                : "Sin programar";
-                            })()}
+                            <ScheduleNextRunLabel schedule={schedule} />
                           </span>
                         </p>
                         <p className="mt-1 text-xs text-zinc-500">
