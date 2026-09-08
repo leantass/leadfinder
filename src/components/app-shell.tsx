@@ -7,6 +7,7 @@ import { useState } from "react";
 type NavigationIcon =
   | "dashboard"
   | "search"
+  | "contacts"
   | "sources"
   | "scrapers"
   | "leads"
@@ -72,11 +73,12 @@ type AppShellProps = {
 const navigation: NavigationItem[] = [
   { label: "Dashboard", href: "/", icon: "dashboard" },
   { label: "Busquedas", href: "/searches", icon: "search" },
+  { label: "Contactos", href: "/contacts", icon: "contacts" },
+  { label: "Leads", href: "/leads", badge: "Core", icon: "leads" },
+  { label: "Operaciones", href: "/operations", badge: "Auto", icon: "operations" },
   { label: "Fuentes", href: "/sources", icon: "sources" },
   { label: "Scrapers", href: "/scrapers", icon: "scrapers" },
-  { label: "Leads", href: "/leads", badge: "Core", icon: "leads" },
   { label: "Campanas", href: "/campaigns", icon: "campaigns" },
-  { label: "Operaciones", href: "/operations", badge: "Auto", icon: "operations" },
   { label: "Reportes", href: "/reports", icon: "reports" },
   { label: "Configuracion", href: "/settings", icon: "settings" },
 ];
@@ -147,6 +149,18 @@ function NavIcon({ icon }: { icon: NavigationIcon }) {
       <svg {...common}>
         <circle cx="11" cy="11" r="7" />
         <path d="m20 20-3.5-3.5" />
+      </svg>
+    );
+  }
+
+  if (icon === "contacts") {
+    return (
+      <svg {...common}>
+        <rect x="3" y="4" width="18" height="16" rx="3" />
+        <circle cx="9" cy="10" r="2.5" />
+        <path d="M5.5 17c.7-2.1 1.9-3.1 3.5-3.1s2.8 1 3.5 3.1" />
+        <path d="M15 9h3" />
+        <path d="M15 13h3" />
       </svg>
     );
   }
