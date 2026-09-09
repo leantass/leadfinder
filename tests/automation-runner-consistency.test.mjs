@@ -66,6 +66,7 @@ function harness({ status = 'pending', fault, afterCommit, normalizationFault = 
     'server-only': {},
     '@prisma/client': { Prisma: { TransactionIsolationLevel: { ReadCommitted: 'ReadCommitted' } } },
     '@/lib/prisma': { prisma },
+    '@/lib/automation/schedule-lock': {},
     '@/lib/leads/automation-engine': { getLeadAutomationActionLabel: a => a },
     '@/lib/leads/lead-ui': { getStatusLabel: s => s },
     '@/lib/automation/schedule-utils': {},
