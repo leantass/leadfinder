@@ -1021,22 +1021,20 @@ async function executeAutomationScheduleRecord(
     minConfidence: schedule.autoApplyMinConfidence as AutomationConfidence,
     allowedActions: schedule.autoApplyActions as LeadAutoAction[],
   });
-  const maxItemsPerRun = Math.min(
-    schedule.pageSize,
-    getAutomationScheduleMaxItemsPerRun({
-      maxItemsPerRun: schedule.maxItemsPerRun,
-    })
-  );
-  const { leadIds, hasMore } = await getLeadIdsForListContext({
+  const maxItemsPerRun = getAutomationScheduleMaxItemsPerRun({
+    maxItemsPerRun: schedule.maxItemsPerRun,
+  });
+  const { leadIds } = await getLeadIdsForListContext({
     q: schedule.query,
     filter: schedule.filter as Parameters<typeof getLeadIdsForListContext>[0]["filter"],
     sort: schedule.sort as Parameters<typeof getLeadIdsForListContext>[0]["sort"],
     page: schedule.page,
-    pageSize: maxItemsPerRun,
+    pageSize: schedule.pageSize,
   });
+  const selectedIds = leadIds.slice(0, maxItemsPerRun);
 
   const runResult = await createAutomationRunRecord({
-    leadIds,
+    leadIds: selectedIds,
     context: {
       q: schedule.query,
       filter: schedule.filter,
@@ -1103,8 +1101,8 @@ async function executeAutomationScheduleRecord(
     run: latestRun,
     autoAppliedCount,
     wasDuplicate: runResult.wasDuplicate ?? false,
-    limitedByMaxItems: hasMore,
-    processedLeadCount: leadIds.length,
+    limitedByMaxItems: selectedIds.length < leadIds.length,
+    processedLeadCount: selectedIds.length,
   };
 }
 
