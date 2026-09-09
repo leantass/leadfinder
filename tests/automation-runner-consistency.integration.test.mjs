@@ -218,6 +218,33 @@ test('PostgreSQL atomic item application in an owned disposable cluster', { skip
       assert.equal(state.run.items[0].status, 'applied'); assert.equal(state.run.failedCount, 0);
       assert.equal(state.run.appliedCount, 1); assert.equal(state.activities.length, 2);
     });
+    await t.test('scheduled pagination persists original context and only selected page IDs', async () => {
+      const ids = [];
+      for (let i = 1; i <= 45; i++) {
+        const lead = await prisma.lead.create({ data: { businessName: `Pagination ${String(i).padStart(2, '0')}` } });
+        ids.push(lead.id);
+      }
+      const schedule = await prisma.automationSchedule.create({ data: {
+        name: 'Pagination fixture', query: 'Pagination', filter: 'all', sort: 'name-asc',
+        page: 2, pageSize: 20, maxItemsPerRun: 5, autoApplySafe: false,
+      } });
+      const runner = load(prisma, { all: true, list: async params => {
+        assert.deepEqual(params, { q: 'Pagination', filter: 'all', sort: 'name-asc', page: 2, pageSize: 20 });
+        const rows = await prisma.lead.findMany({
+          where: { businessName: { startsWith: params.q } }, orderBy: { businessName: 'asc' },
+          skip: (params.page - 1) * params.pageSize, take: params.pageSize + 1,
+        });
+        return { leadIds: rows.slice(0, params.pageSize).map(l => l.id), hasMore: rows.length > params.pageSize };
+      } });
+      const result = await runner.executeAutomationScheduleById(schedule.id);
+      assert.equal(result.ok, true);
+      const stored = await prisma.automationRun.findUniqueOrThrow({ where: { id: result.run.id }, include: { items: true } });
+      assert.deepEqual([stored.page, stored.pageSize, stored.query, stored.filter, stored.sort], [2, 20, 'Pagination', 'all', 'name-asc']);
+      assert.equal(stored.source, 'schedule'); assert.equal(stored.scheduleId, schedule.id);
+      assert.equal(stored.analyzedCount, 5);
+      assert.deepEqual(stored.items.map(i => i.leadId).sort(), ids.slice(20, 25).sort());
+    });
+
     await t.test('schedule workers compete: loser creates no run or activities', async () => {
       const lead = await prisma.lead.create({ data: { businessName: 'Schedule fixture' } });
       const schedule = await prisma.automationSchedule.create({ data: { name: 'Competing fixture', autoApplySafe: true } });
