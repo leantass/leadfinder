@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { enrichLeadCommercialData } from "@/lib/lead-commercial";
+import { persistManualLead } from "@/lib/leads/manual-lead-persistence";
 import { getStatusLabel } from "@/lib/leads/lead-ui";
 import {
   validateManualLeadInput,
@@ -403,71 +403,10 @@ export async function createManualLeadAction(
     };
   }
 
-  const normalized = validation.data;
-  const commercialData = enrichLeadCommercialData({
-    query: "",
-    businessName: normalized.businessName,
-    category: normalized.category,
-    website: normalized.website,
-    phone: normalized.phone,
-    rating: null,
-    reviewsCount: null,
-  });
-
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const lead = await tx.lead.create({
-        data: {
-          searchJobId: null,
-          businessName: normalized.businessName,
-          category: normalized.category,
-          address: normalized.address,
-          city: normalized.city,
-          phone: normalized.phone,
-          website: normalized.website,
-          websiteType: commercialData.websiteType,
-          rating: null,
-          reviewsCount: null,
-          sourceUrl: null,
-          sourcePlatform: null,
-          origin: "MANUAL",
-          commercialStatus: "new",
-          score: commercialData.score,
-          scoreReasons: commercialData.scoreReasons,
-          businessType: commercialData.businessType,
-          suggestedOffer: commercialData.suggestedOffer,
-          offerReason: commercialData.offerReason,
-          outreachStatus: "pending_review",
-          outreachChannel: commercialData.outreachChannel,
-          readyForAutomation: commercialData.readyForAutomation,
-        },
-        select: {
-          id: true,
-          businessName: true,
-          phone: true,
-          website: true,
-          searchJobId: true,
-          origin: true,
-          sourcePlatform: true,
-          sourceUrl: true,
-          commercialStatus: true,
-          outreachStatus: true,
-        },
-      });
-
-      const activity = await tx.leadActivity.create({
-        data: {
-          leadId: lead.id,
-          type: "manual_created",
-          label: "Lead manual creado",
-          metadata: JSON.stringify({ origin: "MANUAL" }),
-        },
-      });
-
-      return {
-        lead,
-        activity: toLeadActivityItem(activity),
-      };
+      const { lead, activity } = await persistManualLead(tx, validation.data);
+      return { lead, activity: toLeadActivityItem(activity) };
     });
 
     revalidateLeadWorkspacePaths();
