@@ -149,7 +149,7 @@ const forbidden = new Proxy(function () { throw new Error('BUSINESS EFFECT ATTEM
 });
 const actions = load('src/app/actions.ts', {
   ...authMocks, 'next/cache': forbidden, '@/lib/prisma': forbidden,
-  '@/lib/lead-commercial': forbidden, '@/lib/leads/lead-ui': forbidden,
+  '@/lib/leads/manual-lead-persistence': forbidden, '@/lib/leads/lead-ui': forbidden,
   '@/lib/leads/manual-lead': forbidden, '@/lib/automation/schedule-runner': forbidden,
   '@/services/search-jobs': forbidden,
 });
@@ -160,6 +160,16 @@ for (const [name, action] of Object.entries(actions)) {
   });
 }
 test('all twelve mutating actions covered', () => assert.equal(Object.keys(actions).length, 12));
+
+const bulkActions = load('src/app/bulk-contact-actions.ts', {
+  ...authMocks, 'next/cache': forbidden, '@/lib/leads/bulk-contact-import': forbidden,
+});
+for (const [name, action] of Object.entries(bulkActions)) {
+  test(`anonymous bulk action rejected before parsing or DB: ${name}`, async () => {
+    cookie = undefined;
+    await assert.rejects(() => action({}), e => e === redirectError);
+  });
+}
 
 const reads = load('src/lib/workspace-data.ts', {
   ...authMocks, '@/lib/prisma': forbidden, '@/lib/leads/list-query': forbidden,
