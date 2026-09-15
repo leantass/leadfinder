@@ -27,6 +27,7 @@ import {
     formatDate,
     formatLeadId,
     getDomainLabel,
+    getLeadOriginLabel,
     getFilterLabel,
     getLeadFollowUpTone,
     getLeadPreviewReasons,
@@ -1175,6 +1176,9 @@ export function LeadsPanel({
                                                                                     {lead.businessName}
                                                                                 </h4>
                                                                                 <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                                                                                    <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[11px] text-zinc-400">
+                                                                                        {getLeadOriginLabel(lead.origin)}
+                                                                                    </span>
                                                                                     <span className="truncate">
                                                                                         ID: {formatLeadId(lead.id)}
                                                                                     </span>
@@ -1426,6 +1430,7 @@ export function LeadsPanel({
                                             {activeLead.businessName}
                                         </h3>
                                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                                            <span>Origen: {getLeadOriginLabel(activeLead.origin)}</span>
                                             <span>ID: {activeLead.id}</span>
                                             <span>{formatDate(activeLead.scrapedAt)}</span>
                                         </div>

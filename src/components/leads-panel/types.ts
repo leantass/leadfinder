@@ -1,3 +1,4 @@
+import type { LeadOrigin } from "@prisma/client";
 import type { CommercialStatus } from "@/lib/leads/lead-ui";
 
 export type LeadNoteItem = {
@@ -148,6 +149,7 @@ export type AutomationSchedulerExecution = {
 
 export type LeadItem = {
     id: string;
+    origin: LeadOrigin;
     businessName: string;
     phone: string | null;
     website: string | null;

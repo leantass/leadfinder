@@ -5,12 +5,14 @@ import { LeadsPanel } from "@/components/leads-panel";
 import {
   parsePositiveInt,
   sanitizeLeadFilter,
+  sanitizeLeadOrigin,
   sanitizeLeadSort,
 } from "@/lib/leads/list-query";
 import { getPaginatedLeadsForPanel, getWorkspaceShellData } from "@/lib/workspace-data";
 
 type LeadsPageProps = {
   searchParams?: Promise<{
+    origin?: string;
     q?: string;
     filter?: string;
     sort?: string;
@@ -21,6 +23,7 @@ type LeadsPageProps = {
 
 export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const requestedOrigin = sanitizeLeadOrigin(resolvedSearchParams?.origin);
   const requestedQuery = resolvedSearchParams?.q?.trim() ?? "";
   const requestedFilter = sanitizeLeadFilter(resolvedSearchParams?.filter);
   const requestedSort = sanitizeLeadSort(resolvedSearchParams?.sort);
@@ -30,6 +33,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   const [shellData, paginatedLeads] = await Promise.all([
     getWorkspaceShellData(),
     getPaginatedLeadsForPanel({
+      origin: requestedOrigin,
       page: requestedPage,
       pageSize: requestedPageSize,
       q: requestedQuery,
@@ -91,6 +95,8 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
     >
       <div className="space-y-4">
         <LeadsListControls
+          key={JSON.stringify(queryState) + pagination.pageSize}
+          enableLeadFilters
           pathname="/leads"
           queryState={queryState}
           pageSize={pagination.pageSize}

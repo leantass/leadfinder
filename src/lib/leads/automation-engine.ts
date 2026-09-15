@@ -117,7 +117,7 @@ export function isSafeAutoApplicableAutomationRunItem(
     return item.status === "pending" && isSafeAutoApplicableAutomationDecision(item, policy);
 }
 
-export function getLeadAutomationDecision(lead: LeadItem): LeadAutomationDecision {
+export function getLeadAutomationDecision(lead: Omit<LeadItem, "origin">): LeadAutomationDecision {
     const hasPhone = Boolean(lead.phone && lead.phone.trim() !== "");
     const hasRealWebsite = lead.websiteType === "real";
     const opportunityLevel = getOpportunityLevel(lead);
