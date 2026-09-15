@@ -155,6 +155,7 @@ const actions = load('src/app/actions.ts', {
   '@/lib/leads/manual-lead-persistence': forbidden, '@/lib/leads/lead-ui': forbidden,
   '@/lib/leads/manual-lead': forbidden, '@/lib/automation/schedule-runner': forbidden,
   '@/services/search-jobs': forbidden,
+  '@/lib/scraper/runtime-config': forbidden,
 });
 for (const [name, action] of Object.entries(actions)) {
   test(`anonymous Server Action rejected before business effects: ${name}`, async () => {

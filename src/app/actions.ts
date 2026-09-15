@@ -21,6 +21,7 @@ import {
   updateAutomationSchedulePolicy,
 } from "@/lib/automation/schedule-runner";
 import { runGoogleMapsSearchJob } from "@/services/search-jobs";
+import { validateSearchMaxResults } from "@/lib/scraper/runtime-config";
 
 import type {
   AutomationSchedule,
@@ -355,10 +356,12 @@ export async function runGoogleMapsSearchAction(
     };
   }
 
-  if (!Number.isInteger(maxResults) || maxResults <= 0) {
+  try {
+    validateSearchMaxResults(maxResults);
+  } catch {
     return {
       ok: false,
-      error: "La cantidad maxima de resultados debe ser un entero mayor a 0.",
+      error: "La cantidad de resultados debe ser un entero entre 1 y 20.",
       jobId: null,
     };
   }

@@ -137,6 +137,18 @@ curl -X POST http://localhost:3000/api/automation/run-due-schedules \
 
 ## Deployment
 
+### Google Maps runtime
+
+El scraper fuerza `headless: true` cuando `NODE_ENV=production`; desarrollo conserva el modo visible por defecto y permite headless explícito. Cada búsqueda usa su propio browser y lo cierra al terminar o fallar. No hay user-agent custom ni stealth.
+
+La Server Action y el scraper aceptan únicamente `maxResults` entero entre 1 y 20. `LEADFINDER_SCRAPER_TIMEOUT_MS` configura un presupuesto global de 1000 a 90000 ms (por defecto 90000), incluyendo lanzamiento, navegación y extracción. Cada navegación/selector tiene un límite de hasta 20000 ms. Al vencer el presupuesto se cierra el browser para interrumpir operaciones y se propaga el error; no se persisten candidatos parciales. El cierre libera recursos antes de devolver el error y puede añadir un breve tiempo de cleanup. El presupuesto no incluye la posterior transacción de persistencia Search.
+
+Provisionar Chromium y sus librerías Linux para la versión instalada de Playwright; por ejemplo, en un runtime Node compatible: `npx playwright install --with-deps chromium`. La instalación debe ocurrir al preparar la imagen/runtime, no por búsqueda. Sin override, `chromium.launch` usa el browser administrado por Playwright. Opcionalmente, `LEADFINDER_CHROMIUM_EXECUTABLE_PATH` puede apuntar a un Chromium compatible instalado por el hosting; debe ser una ruta absoluta existente. No actualizar el browser independientemente sin validar compatibilidad.
+
+Las esperas de búsqueda/detalle dependen de selectores visibles, no de sleeps fijos. Si no aparece contenido verificable, la ejecución falla con contexto; no interpreta un selector roto como cero resultados. No se automatizan consentimientos ni captchas.
+
+Esto no demuestra compatibilidad con Vercel Functions: todavía hay que validar empaquetado del browser, librerías, memoria y duración en el hosting elegido. La prueba headless local se realiza con scraper puro o PostgreSQL descartable, sin escribir en la base operativa.
+
 ### Login rate limiting
 
 `POST /api/auth/login` reserva en PostgreSQL cada intento antes de scrypt: 5 por IP + usuario normalizado y 20 por IP, en ventanas fijas de 15 minutos. El éxito no reinicia contadores y un bloqueo no extiende la ventana. Responde 429 con `Retry-After`; si falta configuración confiable o falla la reserva, responde 503 sin verificar credenciales.
