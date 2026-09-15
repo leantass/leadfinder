@@ -1,4 +1,11 @@
+import type { LeadOrigin } from "@prisma/client";
+
+export function getLeadOriginLabel(origin: LeadOrigin) {
+    return origin === "MANUAL" ? "Manual" : "Búsqueda";
+}
+
 export type FilterType =
+    | CommercialStatus
     | "all"
     | "no-website"
     | "marked"
@@ -231,7 +238,7 @@ export function getFilterLabel(filter: FilterType) {
         return "Seguimiento vencido";
     }
 
-    return "Listos para ventas";
+    return filter === "ready" ? "Listos para ventas" : getStatusLabel(filter);
 }
 
 export function getSortLabel(sort: SortType) {

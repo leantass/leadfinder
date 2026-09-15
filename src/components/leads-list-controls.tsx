@@ -1,15 +1,20 @@
 import Link from "next/link";
+import { LeadsFilterSelectors } from "@/components/leads-filter-selectors";
 
 import type { FilterType, SortType } from "@/lib/leads/lead-ui";
 import {
   leadFilterOptions,
+  leadOriginOptions,
+  type LeadOriginFilter,
   leadPageSizeOptions,
   leadSortOptions,
 } from "@/lib/leads/list-query";
 
 type LeadsListControlsProps = {
   pathname: string;
+  enableLeadFilters?: boolean;
   queryState: {
+    origin?: LeadOriginFilter;
     q: string;
     filter: FilterType;
     sort: SortType;
@@ -23,6 +28,7 @@ export function LeadsListControls({
   queryState,
   pageSize,
   extraParams,
+  enableLeadFilters = false,
 }: LeadsListControlsProps) {
   return (
     <section className="rounded-3xl border border-zinc-800 bg-zinc-900/90 p-4">
@@ -34,7 +40,7 @@ export function LeadsListControls({
           )
         )}
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_220px_220px_140px_auto]">
+        <div className={enableLeadFilters ? "grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4 [&>div]:min-w-0" : "grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_220px_220px_140px_auto]"}>
           <div>
             <label
               htmlFor={`${pathname}-query`}
@@ -52,7 +58,17 @@ export function LeadsListControls({
             />
           </div>
 
-          <div>
+          {enableLeadFilters ? (
+            <>
+              <div>
+                <label htmlFor={`${pathname}-origin`} className="mb-2 block text-[11px] uppercase tracking-[0.18em] text-zinc-500">Origen</label>
+                <select id={`${pathname}-origin`} name="origin" defaultValue={queryState.origin ?? "all"} className="h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-300">
+                  {leadOriginOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
+              <LeadsFilterSelectors key={queryState.filter} pathname={pathname} filter={queryState.filter} />
+            </>
+          ) : <div>
             <label
               htmlFor={`${pathname}-filter`}
               className="mb-2 block text-[11px] uppercase tracking-[0.18em] text-zinc-500"
@@ -71,7 +87,7 @@ export function LeadsListControls({
                 </option>
               ))}
             </select>
-          </div>
+          </div>}
 
           <div>
             <label
@@ -124,7 +140,7 @@ export function LeadsListControls({
             </button>
 
             <Link
-              href={pathname}
+              href={enableLeadFilters ? `${pathname}?origin=all` : pathname}
               className="inline-flex h-11 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
             >
               Limpiar

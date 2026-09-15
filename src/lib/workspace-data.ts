@@ -16,6 +16,9 @@ import type {
 } from "@/components/leads-panel/types";
 import type { FilterType, SortType } from "@/lib/leads/lead-ui";
 import {
+  isCommercialLeadFilter,
+  sanitizeLeadOrigin,
+  type LeadOriginFilter,
   sanitizeLeadFilter,
   sanitizeLeadSort,
 } from "@/lib/leads/list-query";
@@ -431,16 +434,8 @@ function buildLeadFilterWhere(filter: FilterType): Prisma.LeadWhereInput | null 
     };
   }
 
-  if (filter === "marked") {
-    return {
-      commercialStatus: "marked",
-    };
-  }
-
-  if (filter === "ready") {
-    return {
-      commercialStatus: "ready",
-    };
+  if (isCommercialLeadFilter(filter)) {
+    return { commercialStatus: filter };
   }
 
   if (filter === "with-follow-up") {
@@ -491,19 +486,21 @@ function buildLeadFilterWhere(filter: FilterType): Prisma.LeadWhereInput | null 
     };
   }
 
-  return {
-    followUpDueAt: {
-      lt: startOfToday(),
-    },
-  };
+  if (filter === "follow-up-overdue") {
+    return { followUpDueAt: { lt: startOfToday() } };
+  }
+
+  return null;
 }
 
 function buildLeadListWhere({
   q,
   filter,
+  origin,
 }: {
   q?: string;
   filter?: string;
+  origin?: LeadOriginFilter;
 }): Prisma.LeadWhereInput {
   const clauses: Prisma.LeadWhereInput[] = [];
   const searchWhere = buildLeadSearchWhere(q ?? "");
@@ -515,6 +512,11 @@ function buildLeadListWhere({
 
   if (filterWhere) {
     clauses.push(filterWhere);
+  }
+
+  const safeOrigin = sanitizeLeadOrigin(origin);
+  if (safeOrigin !== "all") {
+    clauses.push({ origin: safeOrigin === "manual" ? "MANUAL" : "SEARCH" });
   }
 
   if (clauses.length === 0) {
@@ -741,13 +743,15 @@ export async function getLatestSearchJobs(limit = 5) {
 }
 
 export async function getPaginatedLeadsForPanel({
+  origin,
   page = 1,
   pageSize = 20,
   q = "",
   filter = "all",
   sort = "score-desc",
-}: LeadListParams) {
+}: LeadListParams & { origin?: LeadOriginFilter }) {
   await requireAuthenticatedOperator();
+  const safeOrigin = sanitizeLeadOrigin(origin);
   const safeParams = normalizeLeadListParams({
     page,
     pageSize,
@@ -758,6 +762,7 @@ export async function getPaginatedLeadsForPanel({
   const where = buildLeadListWhere({
     q: safeParams.q,
     filter: safeParams.filter,
+    origin: safeOrigin,
   });
   const orderBy = buildLeadOrderBy(safeParams.sort);
   const totalLeads = await prisma.lead.count({
@@ -799,6 +804,7 @@ export async function getPaginatedLeadsForPanel({
       hasNextPage: currentPage < totalPages,
     },
     queryState: {
+      origin: safeOrigin,
       q: safeParams.q,
       filter: safeParams.filter,
       sort: safeParams.sort,

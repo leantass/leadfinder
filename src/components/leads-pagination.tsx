@@ -1,11 +1,12 @@
 import Link from "next/link";
 
 import type { FilterType, SortType } from "@/lib/leads/lead-ui";
-import { buildLeadListHref } from "@/lib/leads/list-query";
+import { buildLeadListHref, type LeadOriginFilter } from "@/lib/leads/list-query";
 
 type LeadsPaginationProps = {
   pathname: string;
   queryState: {
+    origin?: LeadOriginFilter;
     q: string;
     filter: FilterType;
     sort: SortType;
@@ -49,6 +50,7 @@ export function LeadsPagination({
                     filter: queryState.filter,
                     sort: queryState.sort,
                     page: pagination.page - 1,
+                    origin: queryState.origin,
                     pageSize: pagination.pageSize,
                     extraParams,
                   })
@@ -77,6 +79,7 @@ export function LeadsPagination({
                     filter: queryState.filter,
                     sort: queryState.sort,
                     page: pagination.page + 1,
+                    origin: queryState.origin,
                     pageSize: pagination.pageSize,
                     extraParams,
                   })

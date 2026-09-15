@@ -1,4 +1,35 @@
-import type { FilterType, SortType } from "@/lib/leads/lead-ui";
+import type { CommercialStatus, FilterType, SortType } from "@/lib/leads/lead-ui";
+
+export type LeadOriginFilter = "all" | "search" | "manual";
+
+export const leadOriginOptions: Array<{ value: LeadOriginFilter; label: string }> = [
+  { value: "all", label: "Todos" },
+  { value: "search", label: "Búsqueda" },
+  { value: "manual", label: "Manual" },
+];
+
+export const leadCommercialFilterOptions: Array<{ value: CommercialStatus; label: string }> = [
+  { value: "new", label: "Nuevo" },
+  { value: "reviewed", label: "Revisado" },
+  { value: "contacted", label: "Contactado" },
+  { value: "responded", label: "Respondió" },
+  { value: "interested", label: "Interesado" },
+  { value: "follow-up", label: "Seguimiento" },
+  { value: "closed", label: "Cerrado" },
+  { value: "discarded", label: "Descartado" },
+  { value: "marked", label: "Marcado" },
+  { value: "ready", label: "Listo" },
+];
+
+export function isCommercialLeadFilter(value: string): value is CommercialStatus {
+  return leadCommercialFilterOptions.some((option) => option.value === value);
+}
+
+export function sanitizeLeadOrigin(value: string | undefined): LeadOriginFilter {
+  return leadOriginOptions.some((option) => option.value === value)
+    ? (value as LeadOriginFilter)
+    : "all";
+}
 
 export const leadFilterOptions: Array<{ value: FilterType; label: string }> = [
   { value: "all", label: "Todos" },
@@ -31,7 +62,7 @@ export function parsePositiveInt(value: string | undefined, fallback: number) {
 }
 
 export function sanitizeLeadFilter(value: string | undefined): FilterType {
-  return leadFilterOptions.some((option) => option.value === value)
+  return leadFilterOptions.some((option) => option.value === value) || isCommercialLeadFilter(value ?? "")
     ? (value as FilterType)
     : "all";
 }
@@ -47,6 +78,7 @@ export function buildLeadListHref(params: {
   q: string;
   filter: FilterType;
   sort: SortType;
+  origin?: LeadOriginFilter;
   page: number;
   pageSize: number;
   extraParams?: Record<string, string | number | null | undefined>;
@@ -63,6 +95,10 @@ export function buildLeadListHref(params: {
 
   if (params.sort !== "score-desc") {
     query.set("sort", params.sort);
+  }
+
+  if (params.pathname === "/leads") {
+    query.set("origin", sanitizeLeadOrigin(params.origin));
   }
 
   query.set("page", String(params.page));
