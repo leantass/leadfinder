@@ -6,6 +6,10 @@ type SearchJobListItem = {
   status: string;
   createdAt: Date | string;
   leadCount: number;
+  foundCount?: number | null;
+  createdCount?: number | null;
+  duplicateSkippedCount?: number | null;
+  possibleDuplicateCount?: number | null;
 };
 
 type SearchJobsSectionProps = {
@@ -63,6 +67,14 @@ export function SearchJobsSection({
                   <p className="mt-1 text-sm text-zinc-400">
                     {job.leadCount} leads · {formatJobDate(job.createdAt)}
                   </p>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    {job.foundCount == null || job.createdCount == null || job.duplicateSkippedCount == null || job.possibleDuplicateCount == null
+                      ? "Sin desglose histórico"
+                      : `Encontrados: ${job.foundCount} · Nuevos leads: ${job.createdCount} · Duplicados omitidos: ${job.duplicateSkippedCount}`}
+                  </p>
+                  {job.possibleDuplicateCount != null && job.possibleDuplicateCount > 0 ? (
+                    <p className="mt-1 text-sm text-amber-300">Posibles coincidencias: {job.possibleDuplicateCount}</p>
+                  ) : null}
                 </div>
 
                 <span className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs uppercase tracking-[0.18em] text-zinc-400">
