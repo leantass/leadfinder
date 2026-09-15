@@ -77,11 +77,9 @@ El cron sigue independiente del login y requiere el secret del runner.
 de sesión debe ser distinta. Consultar schedules vacíos devuelve `[]`, sin
 crear un schedule ni habilitar autoaplicación.
 
-Antes de exposición pública, configurar rate limit real en el hosting sobre
-POST `/api/auth/login` (inicio recomendado: 5 intentos/minuto por IP y un límite
-agregado ajustado al único operador). Verificar disponibilidad en el plan y
-probar el rechazo. No se implementa un contador en memoria ni se configura
-el hosting automáticamente. No registrar passwords, cookies ni tokens.
+Antes de exposición pública, configurar el secreto e ingreso confiable del
+limitador PostgreSQL de POST `/api/auth/login`, según la sección Deployment.
+No se configura el hosting automáticamente. No registrar passwords, cookies ni tokens.
 
 ### Comandos
 
@@ -138,6 +136,22 @@ curl -X POST http://localhost:3000/api/automation/run-due-schedules \
 ```
 
 ## Deployment
+
+### Login rate limiting
+
+`POST /api/auth/login` reserva en PostgreSQL cada intento antes de scrypt: 5 por IP + usuario normalizado y 20 por IP, en ventanas fijas de 15 minutos. El éxito no reinicia contadores y un bloqueo no extiende la ventana. Responde 429 con `Retry-After`; si falta configuración confiable o falla la reserva, responde 503 sin verificar credenciales.
+
+Aplicar `20260915190000_login_rate_limit` con `npx prisma migrate deploy` y generar el cliente con `npx prisma generate`. Reiniciar los procesos Next existentes para cargar el cliente y la configuración nuevos.
+
+Configurar `LEADFINDER_RATE_LIMIT_SECRET` con 32 bytes aleatorios codificados como 64 caracteres hexadecimales, diferente de `LEADFINDER_SESSION_SECRET` e idéntico entre instancias. Generarlo fuera del repositorio, guardarlo en el gestor de secretos del despliegue y no registrarlo en logs. Rotarlo cambia las claves y reinicia efectivamente los límites activos; no rotarlo en cada arranque.
+
+Política de IP:
+
+- Desarrollo: únicamente con `NODE_ENV=development` y URL/origen configurado de loopback, usar la clave fija `local-development`. Los headers del cliente se ignoran. No exponer el servidor de desarrollo públicamente.
+- Vercel: con la variable de plataforma `VERCEL=1`, usar exclusivamente `x-vercel-forwarded-for`, una IP válida única proporcionada por la plataforma. No configurar `VERCEL=1` fuera de Vercel. Referencia: [headers de Vercel](https://vercel.com/docs/headers/request-headers).
+- Node propio: configurar `LEADFINDER_TRUST_PROXY=true` **sólo** detrás de un proxy exclusivo que sobrescriba `x-leadfinder-client-ip` con la IP real y bloquee acceso directo al servidor. No reenviar el header del cliente ni extraer arbitrariamente el primer `X-Forwarded-For`. Sin ese contrato, el login falla cerrado con 503.
+
+Sólo se persisten HMAC-SHA256, scope, contador e inicio/expiración. No se guardan IP, usuario, contraseña, cookies ni payload. La limpieza oportunista elimina hasta 100 registros expirados por solicitud reservada; durante inactividad pueden permanecer claves expiradas, sin influir en la admisión. No hay cron nuevo. Los backups siguen la retención de la base; HMAC es seudonimización, no anonimización irreversible.
 
 Configurar las variables de entorno documentadas en el proveedor, ejecutar las migraciones contra la base objetivo y desplegar la aplicación. El cron no reemplaza las migraciones ni crea la base. Revisar que la plataforma de hosting soporte la ejecución del scraper/Playwright si se pretenden lanzar búsquedas desde producción.
 

@@ -49,7 +49,10 @@ const operator = load('src/lib/auth/operator.ts', {
   'next/headers': { cookies: async () => ({ get: () => cookie ? { value: cookie } : undefined }) },
   'next/navigation': { redirect: () => { throw redirectError; } },
 });
-const authMocks = { '@/lib/auth/crypto': crypto, '@/lib/auth/session': session, '@/lib/auth/operator': operator };
+const authMocks = { '@/lib/auth/crypto': crypto, '@/lib/auth/session': session, '@/lib/auth/operator': operator,
+  '@/lib/auth/client-ip': { getLoginClientIp: () => 'isolated-auth-test' },
+  '@/lib/auth/login-rate-limit': { normalizeLoginUsername: value => value.trim().toLowerCase(), reserveLoginAttempt: async () => ({ allowed: true, retryAfterSeconds: null }) },
+};
 const login = load('src/app/api/auth/login/route.ts', authMocks);
 const logout = load('src/app/api/auth/logout/route.ts', authMocks);
 const proxy = load('src/proxy.ts', authMocks);
