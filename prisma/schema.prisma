@@ -11,6 +11,16 @@ enum LeadOrigin {
   MANUAL
 }
 
+model LoginRateLimit {
+  keyHash         String   @id
+  scope           String
+  count           Int
+  windowStartedAt DateTime
+  expiresAt       DateTime
+
+  @@index([expiresAt])
+}
+
 model SearchJob {
   foundCount            Int?
   createdCount          Int?

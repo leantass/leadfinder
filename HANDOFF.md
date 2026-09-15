@@ -55,8 +55,9 @@ El contrato de datos está en `prisma/schema.prisma`. `workspace-data.ts` concen
   debe coincidir en deployment. La clave de sesión es independiente.
 - No se crean schedules durante lecturas. Cero schedules produce estado vacío;
   no se implementó creación explícita ni se modificaron migraciones.
-- Pendiente de hosting antes de exposición pública: rate limit de POST
-  `/api/auth/login`. No existe rate limit en memoria dentro de la aplicación.
+- POST `/api/auth/login` tiene rate limit persistido en PostgreSQL. Antes de
+  exposición pública falta configurar el secreto e ingreso confiable del hosting,
+  según la sección Protección de login.
 
 - `npm run test:auth` cubre autenticacion con dependencias de negocio sustituidas; no es una suite funcional completa.
 - `npm run build` requiere `DATABASE_URL`, porque las páginas del servidor inicializan Prisma; una base no migrada o inaccesible impide validar el build completo.
@@ -82,6 +83,14 @@ Consolidar los módulos visuales y el Dashboard ejecutivo; después crear Contac
 Repositorio: `leantass/leadfinder` (`https://github.com/leantass/leadfinder`). Existe un GitHub Project llamado **LeadFinder** y hay issues de producto. Usarlos como referencia de priorización, pero contrastarlos siempre con el código, las migraciones y este handoff: pueden estar desactualizados respecto de la implementación.
 
 ## 10. Primer día del próximo desarrollador
+
+### Protección de login
+
+El limitador de `POST /api/auth/login` usa `LoginRateLimit` y la migración aditiva `20260915190000_login_rate_limit`. Reserva atómicamente en PostgreSQL antes de scrypt (5 intentos IP+usuario / 20 IP por 15 minutos); éxito no resetea, 429 no prolonga, falla de reserva/configuración produce 503. La limpieza acotada es independiente de la reserva.
+
+Antes de exponer la app, configurar `LEADFINDER_RATE_LIMIT_SECRET` (32 bytes aleatorios / 64 hex, distinto del secret de sesión y compartido entre instancias), migrar, generar Prisma y reiniciar Next. No guardar el valor real en documentación. Desarrollo loopback usa una clave fija; Vercel usa `x-vercel-forwarded-for` sólo bajo `VERCEL=1`; Node propio exige `LEADFINDER_TRUST_PROXY=true` y proxy exclusivo que sobrescriba `x-leadfinder-client-ip`, sin acceso directo. Ver la política y retención en README. No habilitar estas variables de confianza para aceptar headers de clientes arbitrarios.
+
+Tests nuevos: `tests/login-rate-limit.test.mjs` y `tests/login-rate-limit.integration.test.mjs`; integración con PostgreSQL descartable, nunca 5432/5433. Mantener los 34 tests de auth y regresiones existentes. Para smoke de bloqueo usar entorno QA descartable, no la identidad del operador real.
 
 1. Clonar el repositorio y leer README, ROADMAP y este documento.
 2. Copiar `.env.example` a `.env` y configurar una PostgreSQL de desarrollo.
