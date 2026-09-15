@@ -12,6 +12,10 @@ enum LeadOrigin {
 }
 
 model SearchJob {
+  foundCount            Int?
+  createdCount          Int?
+  duplicateSkippedCount Int?
+  possibleDuplicateCount Int?
   id         String   @id @default(cuid())
   query      String
   status     String   @default("pending")

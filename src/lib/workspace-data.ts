@@ -739,6 +739,10 @@ export async function getLatestSearchJobs(limit = 5) {
     status: job.status,
     createdAt: job.createdAt.toISOString(),
     leadCount: job._count.leads,
+    foundCount: job.foundCount,
+    createdCount: job.createdCount,
+    duplicateSkippedCount: job.duplicateSkippedCount,
+    possibleDuplicateCount: job.possibleDuplicateCount,
   }));
 }
 
