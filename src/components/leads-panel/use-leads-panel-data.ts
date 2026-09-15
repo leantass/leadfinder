@@ -2,8 +2,6 @@ import { useMemo } from "react";
 
 import {
     OpportunityLevel,
-    SortType,
-    getLeadFollowUpSortTime,
     getOpportunityLevel,
     getStatusLabel,
     hasLeadFollowUp,
@@ -24,7 +22,6 @@ import type { LeadItem } from "@/components/leads-panel/types";
 type UseLeadsPanelDataParams = {
     leadsWithResolvedNotes: LeadItem[];
     filter: FilterType;
-    sortBy: SortType;
     searchTerm: string;
     selectedLeadIds: string[];
 };
@@ -32,7 +29,6 @@ type UseLeadsPanelDataParams = {
 export function useLeadsPanelData({
     leadsWithResolvedNotes,
     filter,
-    sortBy,
     searchTerm,
     selectedLeadIds,
 }: UseLeadsPanelDataParams) {
@@ -118,53 +114,8 @@ export function useLeadsPanelData({
             groups[getOpportunityLevel(lead)].push(lead);
         }
 
-        const sortWithinGroup = (a: LeadItem, b: LeadItem) => {
-            if (sortBy === "follow-up-asc" || sortBy === "follow-up-desc") {
-                const aFollowUpTime = getLeadFollowUpSortTime(a);
-                const bFollowUpTime = getLeadFollowUpSortTime(b);
-
-                if (aFollowUpTime === null && bFollowUpTime !== null) {
-                    return 1;
-                }
-
-                if (aFollowUpTime !== null && bFollowUpTime === null) {
-                    return -1;
-                }
-
-                if (aFollowUpTime !== null && bFollowUpTime !== null && aFollowUpTime !== bFollowUpTime) {
-                    return sortBy === "follow-up-asc"
-                        ? aFollowUpTime - bFollowUpTime
-                        : bFollowUpTime - aFollowUpTime;
-                }
-            }
-
-            if (b.score !== a.score) {
-                return b.score - a.score;
-            }
-
-            if (sortBy === "recent-desc") {
-                return (
-                    new Date(b.scrapedAt).getTime() - new Date(a.scrapedAt).getTime()
-                );
-            }
-
-            if (sortBy === "name-asc") {
-                return a.businessName.localeCompare(b.businessName, "es", {
-                    sensitivity: "base",
-                });
-            }
-
-            return (
-                new Date(b.scrapedAt).getTime() - new Date(a.scrapedAt).getTime()
-            );
-        };
-
-        groups.hot.sort(sortWithinGroup);
-        groups.warm.sort(sortWithinGroup);
-        groups.cold.sort(sortWithinGroup);
-
         return groups;
-    }, [filteredLeads, sortBy]);
+    }, [filteredLeads]);
 
     const selectedLeads = useMemo(() => {
         return leadsWithResolvedNotes.filter((lead) =>

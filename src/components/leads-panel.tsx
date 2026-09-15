@@ -22,7 +22,6 @@ import {
     COMMERCIAL_STATUS_OPTIONS,
     CommercialStatus,
     FilterType,
-    OpportunityLevel,
     SortType,
     formatDate,
     formatLeadId,
@@ -31,10 +30,7 @@ import {
     getFilterLabel,
     getLeadFollowUpTone,
     getLeadPreviewReasons,
-    getOpportunityBadge,
-    getOpportunityLabel,
     getOpportunityLevel,
-    getOpportunityPanelTone,
     getPrimaryActionClasses,
     getPrimaryActionLabel,
     getScoreLabel,
@@ -220,7 +216,6 @@ export function LeadsPanel({
     }, [initialSearchTerm]);
 
     const effectiveFilter = showListingControls ? filter : "all";
-    const effectiveSortBy = showListingControls ? sortBy : initialSortBy;
     const effectiveSearchTerm = showListingControls ? searchTerm : "";
     const displayFilter = showListingControls ? filter : initialFilter;
     const displaySortBy = showListingControls ? sortBy : initialSortBy;
@@ -238,7 +233,6 @@ export function LeadsPanel({
     } = useLeadsPanelData({
         leadsWithResolvedNotes,
         filter: effectiveFilter,
-        sortBy: effectiveSortBy,
         searchTerm: effectiveSearchTerm,
         selectedLeadIds,
     });
@@ -771,32 +765,6 @@ export function LeadsPanel({
 
         return "Actividad";
     };
-    const sections: Array<{
-        level: OpportunityLevel;
-        title: string;
-        description: string;
-        leads: LeadItem[];
-    }> = [
-            {
-                level: "hot",
-                title: "Oportunidades inmediatas",
-                description: "Con teléfono y sin web propia: prioridad máxima de contacto.",
-                leads: groupedLeads.hot,
-            },
-            {
-                level: "warm",
-                title: "Para trabajar",
-                description: "Bloque intermedio reservado. Con la regla actual no recibe leads.",
-                leads: groupedLeads.warm,
-            },
-            {
-                level: "cold",
-                title: "Bajo impacto",
-                description: "Con web real o sin teléfono: menor urgencia operativa.",
-                leads: groupedLeads.cold,
-            },
-        ];
-
     return (
         <>
             <section className="rounded-3xl border border-zinc-800 bg-zinc-900/90 p-4 sm:p-5">
@@ -1086,325 +1054,284 @@ export function LeadsPanel({
                     </div>
                 ) : (
                     <>
-                        <div className="mt-4 space-y-4">
-                            {sections.map((section) => (
-                                <section
-                                    key={section.level}
-                                    className={`rounded-2xl border p-3 ${getOpportunityPanelTone(
-                                        section.level
-                                    )}`}
-                                >
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span
-                                                    className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] ${getOpportunityBadge(
-                                                        section.level
-                                                    )}`}
-                                                >
-                                                    {getOpportunityLabel(section.level)}
-                                                </span>
-                                                <span className="text-sm text-zinc-400">
-                                                    {section.leads.length} lead
-                                                    {section.leads.length === 1 ? "" : "s"}
-                                                </span>
-                                            </div>
-                                            <h4 className="mt-3 text-lg font-semibold text-white">
-                                                {section.title}
-                                            </h4>
-                                            <p className="mt-1 text-sm text-zinc-400">
-                                                {section.description}
-                                            </p>
-                                        </div>
-                                    </div>
+                        <div className="mt-4 grid gap-2.5">
+                            {filteredLeads.map((lead) => {
+                                const isSelected = selectedLeadIds.includes(lead.id);
+                                const isExpanded = expandedLeadIds.includes(lead.id);
+                                const previewReasons = getLeadPreviewReasons(lead);
+                                const opportunityLevel = getOpportunityLevel(lead);
+                                const primaryWhatsappUrl = getWhatsAppUrlFromLead(lead);
+                                const leadFollowUp = lead.followUp ?? {
+                                    nextAction: "",
+                                    dueAt: null,
+                                };
+                                const followUpLead = {
+                                    ...lead,
+                                    followUp: leadFollowUp,
+                                };
+                                const hasFollowUp = hasLeadFollowUp(followUpLead);
+                                const followUpSummary = [
+                                    leadFollowUp.nextAction || null,
+                                    formatFollowUpDate(leadFollowUp.dueAt),
+                                ]
+                                    .filter(Boolean)
+                                    .join(" · ");
+                                const compactSignalItems = [
+                                    {
+                                        className: getWebsiteTypeBadge(lead.websiteType),
+                                        label: getWebsiteTypeLabel(lead.websiteType),
+                                    },
+                                    {
+                                        className: getOutreachStatusBadge(lead.outreachStatus),
+                                        label: getOutreachStatusLabel(lead.outreachStatus),
+                                    },
+                                ];
+                                const extraSignalCount = 5 - compactSignalItems.length;
 
-                                    {section.leads.length === 0 ? (
-                                        <div className="mt-3 rounded-2xl border border-dashed border-zinc-700 bg-zinc-950/30 px-4 py-5 text-sm text-zinc-500">
-                                            No hay leads en esta prioridad con el filtro actual.
-                                        </div>
-                                    ) : (
-                                        <div className="mt-3 grid gap-2.5">
-                                            {section.leads.map((lead) => {
-                                                const isSelected = selectedLeadIds.includes(lead.id);
-                                                const isExpanded = expandedLeadIds.includes(lead.id);
-                                                const previewReasons = getLeadPreviewReasons(lead);
-                                                const opportunityLevel = getOpportunityLevel(lead);
-                                                const primaryWhatsappUrl = getWhatsAppUrlFromLead(lead);
-                                                const leadFollowUp = lead.followUp ?? {
-                                                    nextAction: "",
-                                                    dueAt: null,
-                                                };
-                                                const followUpLead = {
-                                                    ...lead,
-                                                    followUp: leadFollowUp,
-                                                };
-                                                const hasFollowUp = hasLeadFollowUp(followUpLead);
-                                                const followUpSummary = [
-                                                    leadFollowUp.nextAction || null,
-                                                    formatFollowUpDate(leadFollowUp.dueAt),
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(" · ");
-                                                const compactSignalItems = [
-                                                    {
-                                                        className: getWebsiteTypeBadge(lead.websiteType),
-                                                        label: getWebsiteTypeLabel(lead.websiteType),
-                                                    },
-                                                    {
-                                                        className: getOutreachStatusBadge(lead.outreachStatus),
-                                                        label: getOutreachStatusLabel(lead.outreachStatus),
-                                                    },
-                                                ];
-                                                const extraSignalCount = 5 - compactSignalItems.length;
-
-                                                return (
-                                                    <article
-                                                        key={`${section.level}-${lead.id}`}
-                                                        onClick={() => toggleLeadSelection(lead.id)}
-                                                        className={`cursor-pointer overflow-hidden rounded-2xl border p-3 transition ${isSelected
-                                                            ? "border-violet-800 bg-violet-950/20"
-                                                            : "border-zinc-800 bg-[#0b1220] hover:bg-zinc-900/70"
-                                                            }`}
-                                                    >
-                                                        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                                return (
+                                    <article
+                                        key={lead.id}
+                                        onClick={() => toggleLeadSelection(lead.id)}
+                                        className={`cursor-pointer overflow-hidden rounded-2xl border p-3 transition ${isSelected
+                                            ? "border-violet-800 bg-violet-950/20"
+                                            : "border-zinc-800 bg-[#0b1220] hover:bg-zinc-900/70"
+                                            }`}
+                                    >
+                                        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex min-w-0 items-start gap-2">
                                                             <div className="min-w-0 flex-1">
-                                                                <div className="flex items-start justify-between gap-3">
-                                                                    <div className="min-w-0 flex-1">
-                                                                        <div className="flex min-w-0 items-start gap-2">
-                                                                            <div className="min-w-0 flex-1">
-                                                                                <h4 className="line-clamp-2 text-base font-semibold leading-5 text-white">
-                                                                                    {lead.businessName}
-                                                                                </h4>
-                                                                                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-                                                                                    <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[11px] text-zinc-400">
-                                                                                        {getLeadOriginLabel(lead.origin)}
-                                                                                    </span>
-                                                                                    <span className="truncate">
-                                                                                        ID: {formatLeadId(lead.id)}
-                                                                                    </span>
-                                                                                    <span className="truncate">
-                                                                                        {formatDate(lead.scrapedAt)}
-                                                                                    </span>
-                                                                                </div>
-                                                                            </div>
-
-                                                                            <div
-                                                                                onClick={(event) => event.stopPropagation()}
-                                                                                className="flex shrink-0 items-start pt-0.5"
-                                                                            >
-                                                                                <input
-                                                                                    id={`select-lead-${lead.id}`}
-                                                                                    name={`select-lead-${lead.id}`}
-                                                                                    type="checkbox"
-                                                                                    checked={isSelected}
-                                                                                    onChange={() => toggleLeadSelection(lead.id)}
-                                                                                    className="h-4 w-4 cursor-pointer rounded border-zinc-700 bg-zinc-900 text-violet-500 focus:ring-violet-500"
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                                                                            <OpportunityLevelBadge lead={lead} />
-                                                                            <span
-                                                                                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] ${getScoreTone(
-                                                                                    lead.score
-                                                                                )}`}
-                                                                            >
-                                                                                Score {lead.score} · {getScoreLabel(lead.score)}
-                                                                            </span>
-                                                                            <span
-                                                                                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] ${getStatusBadge(
-                                                                                    lead.commercialStatus
-                                                                                )}`}
-                                                                            >
-                                                                                {getStatusLabel(lead.commercialStatus)}
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div
-                                                                        onClick={(event) => event.stopPropagation()}
-                                                                        className="shrink-0"
-                                                                    >
-                                                                        {opportunityLevel === "hot" && primaryWhatsappUrl ? (
-                                                                            <a
-                                                                                href={primaryWhatsappUrl}
-                                                                                target="_blank"
-                                                                                rel="noreferrer"
-                                                                                className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-xs font-medium transition ${getPrimaryActionClasses(
-                                                                                    opportunityLevel
-                                                                                )}`}
-                                                                            >
-                                                                                {getPrimaryActionLabel(opportunityLevel)}
-                                                                            </a>
-                                                                        ) : (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => openLeadDetail(lead.id)}
-                                                                                className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-xs font-medium transition ${getPrimaryActionClasses(
-                                                                                    opportunityLevel
-                                                                                )}`}
-                                                                            >
-                                                                                {getPrimaryActionLabel(opportunityLevel)}
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className="mt-2.5 flex flex-wrap items-start gap-x-4 gap-y-1.5 text-xs text-zinc-300">
-                                                                    <div className="min-w-0 max-w-full">
-                                                                        <span className="text-zinc-500">Tel:</span>{" "}
-                                                                        <span className="break-words">{lead.phone ?? "—"}</span>
-                                                                    </div>
-                                                                    <div className="min-w-0 max-w-full">
-                                                                        <span className="text-zinc-500">Web:</span>{" "}
-                                                                        <span className="break-words font-medium text-zinc-200">
-                                                                            {lead.website ? getDomainLabel(lead.website) : "—"}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="flex min-w-0 flex-wrap gap-1.5">
-                                                                        {compactSignalItems.map((item) => (
-                                                                            <span
-                                                                                key={`${lead.id}-${item.label}`}
-                                                                                className={`inline-flex max-w-full break-words rounded-full px-2 py-0.5 text-[11px] leading-4 ${item.className}`}
-                                                                            >
-                                                                                {item.label}
-                                                                            </span>
-                                                                        ))}
-                                                                        {extraSignalCount > 0 ? (
-                                                                            <span className="inline-flex rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[11px] leading-4 text-zinc-400">
-                                                                                +{extraSignalCount}
-                                                                            </span>
-                                                                        ) : null}
-                                                                    </div>
-                                                                </div>
-
-                                                                {hasFollowUp ? (
-                                                                    <div className="mt-2">
-                                                                        <span
-                                                                            className={`inline-flex max-w-full break-words rounded-full px-2 py-0.5 text-[11px] leading-4 ${getLeadFollowUpTone(
-                                                                                followUpLead
-                                                                            )}`}
-                                                                        >
-                                                                            Seguimiento: {followUpSummary}
-                                                                        </span>
-                                                                    </div>
-                                                                ) : null}
-
-                                                                {isExpanded ? (
-                                                                    <div className="mt-2 rounded-xl border border-zinc-800 bg-zinc-950/40 p-2.5">
-                                                                        <div className="flex flex-wrap gap-1.5">
-                                                                            <LeadBadges lead={lead} compact />
-                                                                        </div>
-                                                                        {previewReasons.length > 0 ? (
-                                                                            <div className="mt-2">
-                                                                                <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-                                                                                    Motivos visibles
-                                                                                </p>
-                                                                                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                                                                    {previewReasons.map((reason, index) => (
-                                                                                        <span
-                                                                                            key={`${lead.id}-reason-${index}`}
-                                                                                            className="inline-flex max-w-full break-words rounded-full border border-violet-900/40 bg-violet-950/20 px-2 py-0.5 text-[11px] leading-4 text-violet-200"
-                                                                                            title={reason}
-                                                                                        >
-                                                                                            {reason}
-                                                                                        </span>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </div>
-                                                                        ) : null}
-                                                                        <div className="mt-2">
-                                                                            <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-                                                                                Senales comerciales
-                                                                            </p>
-                                                                            <div className="mt-1.5">
-                                                                                <CommercialSignalBadges lead={lead} />
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="mt-2 border-t border-zinc-800 pt-2">
-                                                                            <CommercialIntelligenceCard lead={lead} compact />
-                                                                        </div>
-                                                                    </div>
-                                                                ) : null}
-
-                                                                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                                                                    <div
-                                                                        onClick={(event) => event.stopPropagation()}
-                                                                        className="min-w-0 flex-1"
-                                                                    >
-                                                                        <RowQuickActions
-                                                                            lead={lead}
-                                                                            isPending={isPending}
-                                                                            onMark={markSingleLead}
-                                                                            onSendToSales={sendSingleLeadToSales}
-                                                                            onOpenDetail={openLeadDetail}
-                                                                        />
-                                                                    </div>
-
-                                                                    <div
-                                                                        onClick={(event) => event.stopPropagation()}
-                                                                        className="flex shrink-0 flex-wrap items-center gap-2"
-                                                                    >
-                                                                        <select
-                                                                            id={`commercial-status-${lead.id}`}
-                                                                            name={`commercial-status-${lead.id}`}
-                                                                            value={lead.commercialStatus}
-                                                                            onChange={(event) =>
-                                                                                updateLeadCommercialStatus(
-                                                                                    lead.id,
-                                                                                    event.target.value
-                                                                                )
-                                                                            }
-                                                                            className="h-8 max-w-[140px] rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-[11px] text-zinc-300 outline-none transition hover:bg-zinc-800"
-                                                                        >
-                                                                            {!COMMERCIAL_STATUS_OPTIONS.some(
-                                                                                (option) =>
-                                                                                    option.value ===
-                                                                                    lead.commercialStatus
-                                                                            ) ? (
-                                                                                <option value={lead.commercialStatus}>
-                                                                                    {getStatusLabel(
-                                                                                        lead.commercialStatus
-                                                                                    )}
-                                                                                </option>
-                                                                            ) : null}
-                                                                            {COMMERCIAL_STATUS_OPTIONS.map((option) => (
-                                                                                <option
-                                                                                    key={option.value}
-                                                                                    value={option.value}
-                                                                                >
-                                                                                    {option.label}
-                                                                                </option>
-                                                                            ))}
-                                                                        </select>
-
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => openLeadDetail(lead.id)}
-                                                                            className="inline-flex h-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-[11px] text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
-                                                                        >
-                                                                            Detalle
-                                                                        </button>
-
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => toggleLeadExpansion(lead.id)}
-                                                                            className="inline-flex h-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-[11px] text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
-                                                                        >
-                                                                            {isExpanded ? "Menos" : "Más info"}
-                                                                        </button>
-                                                                    </div>
+                                                                <h4 className="line-clamp-2 text-base font-semibold leading-5 text-white">
+                                                                    {lead.businessName}
+                                                                </h4>
+                                                                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                                                                    <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[11px] text-zinc-400">
+                                                                        {getLeadOriginLabel(lead.origin)}
+                                                                    </span>
+                                                                    <span className="truncate">
+                                                                        ID: {formatLeadId(lead.id)}
+                                                                    </span>
+                                                                    <span className="truncate">
+                                                                        {formatDate(lead.scrapedAt)}
+                                                                    </span>
                                                                 </div>
                                                             </div>
+
+                                                            <div
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                className="flex shrink-0 items-start pt-0.5"
+                                                            >
+                                                                <input
+                                                                    id={`select-lead-${lead.id}`}
+                                                                    name={`select-lead-${lead.id}`}
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => toggleLeadSelection(lead.id)}
+                                                                    className="h-4 w-4 cursor-pointer rounded border-zinc-700 bg-zinc-900 text-violet-500 focus:ring-violet-500"
+                                                                />
+                                                            </div>
                                                         </div>
-                                                    </article>
-                                                );
-                                            })}
+
+                                                        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                                                            <OpportunityLevelBadge lead={lead} />
+                                                            <span
+                                                                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] ${getScoreTone(
+                                                                    lead.score
+                                                                )}`}
+                                                            >
+                                                                Score {lead.score} · {getScoreLabel(lead.score)}
+                                                            </span>
+                                                            <span
+                                                                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] ${getStatusBadge(
+                                                                    lead.commercialStatus
+                                                                )}`}
+                                                            >
+                                                                {getStatusLabel(lead.commercialStatus)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div
+                                                        onClick={(event) => event.stopPropagation()}
+                                                        className="shrink-0"
+                                                    >
+                                                        {opportunityLevel === "hot" && primaryWhatsappUrl ? (
+                                                            <a
+                                                                href={primaryWhatsappUrl}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-xs font-medium transition ${getPrimaryActionClasses(
+                                                                    opportunityLevel
+                                                                )}`}
+                                                            >
+                                                                {getPrimaryActionLabel(opportunityLevel)}
+                                                            </a>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openLeadDetail(lead.id)}
+                                                                className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-xs font-medium transition ${getPrimaryActionClasses(
+                                                                    opportunityLevel
+                                                                )}`}
+                                                            >
+                                                                {getPrimaryActionLabel(opportunityLevel)}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-2.5 flex flex-wrap items-start gap-x-4 gap-y-1.5 text-xs text-zinc-300">
+                                                    <div className="min-w-0 max-w-full">
+                                                        <span className="text-zinc-500">Tel:</span>{" "}
+                                                        <span className="break-words">{lead.phone ?? "—"}</span>
+                                                    </div>
+                                                    <div className="min-w-0 max-w-full">
+                                                        <span className="text-zinc-500">Web:</span>{" "}
+                                                        <span className="break-words font-medium text-zinc-200">
+                                                            {lead.website ? getDomainLabel(lead.website) : "—"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex min-w-0 flex-wrap gap-1.5">
+                                                        {compactSignalItems.map((item) => (
+                                                            <span
+                                                                key={`${lead.id}-${item.label}`}
+                                                                className={`inline-flex max-w-full break-words rounded-full px-2 py-0.5 text-[11px] leading-4 ${item.className}`}
+                                                            >
+                                                                {item.label}
+                                                            </span>
+                                                        ))}
+                                                        {extraSignalCount > 0 ? (
+                                                            <span className="inline-flex rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[11px] leading-4 text-zinc-400">
+                                                                +{extraSignalCount}
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                </div>
+
+                                                {hasFollowUp ? (
+                                                    <div className="mt-2">
+                                                        <span
+                                                            className={`inline-flex max-w-full break-words rounded-full px-2 py-0.5 text-[11px] leading-4 ${getLeadFollowUpTone(
+                                                                followUpLead
+                                                            )}`}
+                                                        >
+                                                            Seguimiento: {followUpSummary}
+                                                        </span>
+                                                    </div>
+                                                ) : null}
+
+                                                {isExpanded ? (
+                                                    <div className="mt-2 rounded-xl border border-zinc-800 bg-zinc-950/40 p-2.5">
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            <LeadBadges lead={lead} compact />
+                                                        </div>
+                                                        {previewReasons.length > 0 ? (
+                                                            <div className="mt-2">
+                                                                <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+                                                                    Motivos visibles
+                                                                </p>
+                                                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                                                    {previewReasons.map((reason, index) => (
+                                                                        <span
+                                                                            key={`${lead.id}-reason-${index}`}
+                                                                            className="inline-flex max-w-full break-words rounded-full border border-violet-900/40 bg-violet-950/20 px-2 py-0.5 text-[11px] leading-4 text-violet-200"
+                                                                            title={reason}
+                                                                        >
+                                                                            {reason}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ) : null}
+                                                        <div className="mt-2">
+                                                            <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+                                                                Senales comerciales
+                                                            </p>
+                                                            <div className="mt-1.5">
+                                                                <CommercialSignalBadges lead={lead} />
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-2 border-t border-zinc-800 pt-2">
+                                                            <CommercialIntelligenceCard lead={lead} compact />
+                                                        </div>
+                                                    </div>
+                                                ) : null}
+
+                                                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                                                    <div
+                                                        onClick={(event) => event.stopPropagation()}
+                                                        className="min-w-0 flex-1"
+                                                    >
+                                                        <RowQuickActions
+                                                            lead={lead}
+                                                            isPending={isPending}
+                                                            onMark={markSingleLead}
+                                                            onSendToSales={sendSingleLeadToSales}
+                                                            onOpenDetail={openLeadDetail}
+                                                        />
+                                                    </div>
+
+                                                    <div
+                                                        onClick={(event) => event.stopPropagation()}
+                                                        className="flex shrink-0 flex-wrap items-center gap-2"
+                                                    >
+                                                        <select
+                                                            id={`commercial-status-${lead.id}`}
+                                                            name={`commercial-status-${lead.id}`}
+                                                            value={lead.commercialStatus}
+                                                            onChange={(event) =>
+                                                                updateLeadCommercialStatus(
+                                                                    lead.id,
+                                                                    event.target.value
+                                                                )
+                                                            }
+                                                            className="h-8 max-w-[140px] rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-[11px] text-zinc-300 outline-none transition hover:bg-zinc-800"
+                                                        >
+                                                            {!COMMERCIAL_STATUS_OPTIONS.some(
+                                                                (option) =>
+                                                                    option.value ===
+                                                                    lead.commercialStatus
+                                                            ) ? (
+                                                                <option value={lead.commercialStatus}>
+                                                                    {getStatusLabel(
+                                                                        lead.commercialStatus
+                                                                    )}
+                                                                </option>
+                                                            ) : null}
+                                                            {COMMERCIAL_STATUS_OPTIONS.map((option) => (
+                                                                <option
+                                                                    key={option.value}
+                                                                    value={option.value}
+                                                                >
+                                                                    {option.label}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openLeadDetail(lead.id)}
+                                                            className="inline-flex h-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-[11px] text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
+                                                        >
+                                                            Detalle
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleLeadExpansion(lead.id)}
+                                                            className="inline-flex h-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-[11px] text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
+                                                        >
+                                                            {isExpanded ? "Menos" : "Más info"}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    )}
-                                </section>
-                            ))}
+                                    </article>
+                                );
+                            })}
                         </div>
 
                     </>
