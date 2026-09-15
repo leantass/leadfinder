@@ -1,4 +1,8 @@
-import { chromium, Locator, Page } from "playwright";
+import { Locator, Page } from "playwright";
+import { withScraperPage } from "@/lib/scraper/browser-runtime";
+import { validateSearchMaxResults } from "@/lib/scraper/runtime-config";
+
+const selectors = { query: 'input[name="q"]', results: 'div[role="article"] a.hfpxzc', detail: "h1" };
 
 export type GoogleMapsScraperOptions = {
   headless?: boolean;
@@ -28,18 +32,20 @@ async function openGoogleMapsAndSearch(page: Page, query: string) {
     waitUntil: "domcontentloaded",
   });
 
-  await page.waitForTimeout(5000);
+  await page.locator(selectors.query).waitFor({ state: "visible" });
 
-  await page.fill('input[name="q"]', query);
+  await page.fill(selectors.query, query);
   await page.keyboard.press("Enter");
 
-  await page.waitForSelector('div[role="article"] a.hfpxzc', {
-    timeout: 20000,
-  });
+  try {
+    await page.locator(selectors.results).first().waitFor({ state: "visible" });
+  } catch (cause) {
+    throw new Error("Google Maps no mostro resultados verificables: posible bloqueo, consentimiento o cambio de selector.", { cause });
+  }
 }
 
 async function getVisibleResultsCount(page: Page): Promise<number> {
-  const resultLinks = page.locator('div[role="article"] a.hfpxzc');
+  const resultLinks = page.locator(selectors.results);
   return resultLinks.count();
 }
 
@@ -77,16 +83,12 @@ async function getVisibleResultsList(
 }
 
 async function openResultDetail(page: Page, resultIndex: number) {
-  const resultLinks = page.locator('div[role="article"] a.hfpxzc');
+  const resultLinks = page.locator(selectors.results);
   const resultLink = resultLinks.nth(resultIndex);
 
   await resultLink.click();
 
-  await page.waitForSelector("h1", {
-    timeout: 20000,
-  });
-
-  await page.waitForTimeout(2000);
+  await waitForLeadDetail(page);
 }
 
 async function openResultDetailByUrl(page: Page, sourceUrl: string) {
@@ -94,11 +96,17 @@ async function openResultDetailByUrl(page: Page, sourceUrl: string) {
     waitUntil: "domcontentloaded",
   });
 
-  await page.waitForSelector("h1", {
-    timeout: 20000,
-  });
+  await waitForLeadDetail(page);
+}
 
-  await page.waitForTimeout(2000);
+
+async function waitForLeadDetail(page: Page) {
+  try {
+    await page.locator(selectors.detail).filter({ hasNotText: /^(Resultados|Results)$/ }).first().waitFor({ state: "visible" });
+    await page.locator('[data-item-id]').first().waitFor({ state: "visible" });
+  } catch (cause) {
+    throw new Error("Google Maps no mostro el detalle esperado: posible bloqueo o cambio de selector.", { cause });
+  }
 }
 
 async function getFirstText(locator: Locator): Promise<string | null> {
@@ -271,7 +279,7 @@ async function extractLeadDetail(
 ): Promise<GoogleMapsLead> {
   const sourceUrl = page.url();
 
-  const name = await page.locator("h1").evaluateAll((elements) =>
+  const name = await page.locator(selectors.detail).evaluateAll((elements) =>
     elements
       .map((el) => el.textContent?.trim() || "")
       .find(
@@ -325,14 +333,7 @@ export async function scrapeSingleGoogleMapsLead(
   resultIndex = 1,
   options: GoogleMapsScraperOptions = {}
 ): Promise<GoogleMapsLead> {
-  const totalStart = Date.now();
-
-  const browser = await chromium.launch({
-    headless: options.headless ?? false,
-  });
-
-  try {
-    const page = await browser.newPage();
+  return withScraperPage(options, async (page) => {
 
     const searchStart = Date.now();
     await openGoogleMapsAndSearch(page, query);
@@ -365,26 +366,14 @@ export async function scrapeSingleGoogleMapsLead(
     console.log(`[timing] extractLeadDetail: ${Date.now() - extractStart}ms`);
 
     return lead;
-  } finally {
-    const closeStart = Date.now();
-    await browser.close();
-    console.log(`[timing] browser.close: ${Date.now() - closeStart}ms`);
-    console.log(`[timing] total: ${Date.now() - totalStart}ms`);
-  }
+  });
 }
 
 export async function scrapeGoogleMapsVisibleResults(
   query: string,
   options: GoogleMapsScraperOptions = {}
 ): Promise<GoogleMapsVisibleResult[]> {
-  const totalStart = Date.now();
-
-  const browser = await chromium.launch({
-    headless: options.headless ?? false,
-  });
-
-  try {
-    const page = await browser.newPage();
+  return withScraperPage(options, async (page) => {
 
     const searchStart = Date.now();
     await openGoogleMapsAndSearch(page, query);
@@ -397,12 +386,7 @@ export async function scrapeGoogleMapsVisibleResults(
     console.log(`[timing] getVisibleResultsList: ${Date.now() - listStart}ms`);
 
     return results;
-  } finally {
-    const closeStart = Date.now();
-    await browser.close();
-    console.log(`[timing] browser.close: ${Date.now() - closeStart}ms`);
-    console.log(`[timing] total: ${Date.now() - totalStart}ms`);
-  }
+  });
 }
 
 export async function scrapeGoogleMapsMultipleLeads(
@@ -410,14 +394,8 @@ export async function scrapeGoogleMapsMultipleLeads(
   maxResults = 3,
   options: GoogleMapsScraperOptions = {}
 ): Promise<GoogleMapsLead[]> {
-  const totalStart = Date.now();
-
-  const browser = await chromium.launch({
-    headless: options.headless ?? false,
-  });
-
-  try {
-    const page = await browser.newPage();
+  validateSearchMaxResults(maxResults);
+  return withScraperPage(options, async (page) => {
 
     const searchStart = Date.now();
     await openGoogleMapsAndSearch(page, query);
@@ -432,8 +410,7 @@ export async function scrapeGoogleMapsMultipleLeads(
     );
 
     if (visibleResultsCount === 0) {
-      console.log("[scrape] No se encontraron resultados visibles.");
-      return [];
+      throw new Error("Google Maps no devolvio candidatos verificables; revisar selectores o bloqueo.");
     }
 
     const listStart = Date.now();
@@ -445,8 +422,7 @@ export async function scrapeGoogleMapsMultipleLeads(
       .slice(0, maxResults);
 
     if (selectedResults.length === 0) {
-      console.log("[scrape] No hubo resultados visibles con sourceUrl utilizable.");
-      return [];
+      throw new Error("Google Maps devolvio resultados sin URL utilizable; revisar selectores.");
     }
 
     const leads: GoogleMapsLead[] = [];
@@ -472,10 +448,5 @@ export async function scrapeGoogleMapsMultipleLeads(
     }
 
     return leads;
-  } finally {
-    const closeStart = Date.now();
-    await browser.close();
-    console.log(`[timing] browser.close: ${Date.now() - closeStart}ms`);
-    console.log(`[timing] total: ${Date.now() - totalStart}ms`);
-  }
+  });
 }

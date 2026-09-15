@@ -84,6 +84,12 @@ Repositorio: `leantass/leadfinder` (`https://github.com/leantass/leadfinder`). E
 
 ## 10. Primer día del próximo desarrollador
 
+### Scraper para producción
+
+La configuración está centralizada en `src/lib/scraper/runtime-config.ts`: producción fuerza headless; `maxResults` admite 1–20; `LEADFINDER_SCRAPER_TIMEOUT_MS` permite reducir el presupuesto de 90 s (mínimo 1 s). `LEADFINDER_CHROMIUM_EXECUTABLE_PATH` es un override opcional del browser del hosting. No hay rutas locales hardcodeadas. Ver README para provisionar Chromium compatible y dependencias del sistema.
+
+`browser-runtime.ts` interrumpe Playwright cerrando el browser al vencer el presupuesto y limpia recursos en finally. El error alcanza SearchJob como failed antes de persistir candidatos. Search Dedup no cambia. La búsqueda sigue dentro de la Server Action; no hay worker nuevo ni deploy. Falta validar el empaquetado y los recursos del hosting real.
+
 ### Protección de login
 
 El limitador de `POST /api/auth/login` usa `LoginRateLimit` y la migración aditiva `20260915190000_login_rate_limit`. Reserva atómicamente en PostgreSQL antes de scrypt (5 intentos IP+usuario / 20 IP por 15 minutos); éxito no resetea, 429 no prolonga, falla de reserva/configuración produce 503. La limpieza acotada es independiente de la reserva.
