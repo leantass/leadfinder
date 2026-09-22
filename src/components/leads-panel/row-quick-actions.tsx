@@ -1,7 +1,6 @@
 import {
     getOpportunityLevel,
     getPrimaryActionClasses,
-    getPrimaryActionLabel,
 } from "@/lib/leads/lead-ui";
 import { getWhatsAppUrlFromLead } from "@/lib/outreach/whatsapp-message";
 
@@ -24,7 +23,6 @@ export function RowQuickActions({
     const isMarked = lead.commercialStatus === "marked";
     const isReady = lead.commercialStatus === "ready";
     const opportunityLevel = getOpportunityLevel(lead);
-    const primaryActionLabel = getPrimaryActionLabel(opportunityLevel);
 
     return (
         <div className="flex flex-wrap gap-1.5">
@@ -38,7 +36,7 @@ export function RowQuickActions({
                         opportunityLevel
                     )}`}
                 >
-                    {primaryActionLabel}
+                    Abrir WhatsApp
                 </a>
             ) : (
                 <button
@@ -51,7 +49,7 @@ export function RowQuickActions({
                         opportunityLevel
                     )}`}
                 >
-                    {primaryActionLabel}
+                    Ver detalle
                 </button>
             )}
 

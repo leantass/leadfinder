@@ -40,7 +40,7 @@ import {
 } from "@/lib/automation/schedule-utils";
 import { getOutreachChannelLabel } from "@/lib/lead-format";
 import type { FilterType, SortType } from "@/lib/leads/lead-ui";
-import { formatDate, getStatusBadge, getStatusLabel } from "@/lib/leads/lead-ui";
+import { formatDate, getFilterLabel, getSortLabel, getStatusBadge, getStatusLabel } from "@/lib/leads/lead-ui";
 import { getWhatsAppUrlFromLead } from "@/lib/outreach/whatsapp-message";
 
 type RunItemFilter = "all" | AutomationRunItemStatus;
@@ -480,7 +480,7 @@ export function OperationsAutomationPanel({
     setSavingScheduleId(null);
 
     if (!result.ok || !result.schedule) {
-      setActionError(result.error ?? "No se pudo actualizar la política del schedule.");
+      setActionError(result.error ?? "No se pudo actualizar la política de la programación.");
       return;
     }
 
@@ -523,7 +523,7 @@ export function OperationsAutomationPanel({
     setIsAnalyzing(false);
 
     if (!result.ok || !result.run) {
-      setActionError(result.error ?? "No se pudo generar el run de automatizacion.");
+      setActionError(result.error ?? "No se pudo generar la ejecución de automatización.");
       return;
     }
 
@@ -531,7 +531,7 @@ export function OperationsAutomationPanel({
     setItemFilter("pending");
     router.replace(buildOperationsHref(result.run.id));
     setActionMessage(
-      `Run creado con ${result.run.decisionCount} decisiones sobre ${result.run.analyzedCount} leads.`
+      `Ejecución creada con ${result.run.decisionCount} decisiones sobre ${result.run.analyzedCount} leads.`
     );
   }
 
@@ -704,7 +704,7 @@ export function OperationsAutomationPanel({
     setBusyScheduleId(null);
 
     if (!result.ok || !result.schedule || !result.run) {
-      setActionError(result.error ?? "No se pudo ejecutar el schedule.");
+      setActionError(result.error ?? "No se pudo ejecutar la programación.");
       return;
     }
 
@@ -713,7 +713,7 @@ export function OperationsAutomationPanel({
     setItemFilter("pending");
     router.replace(buildOperationsHref(result.run.id));
     setActionMessage(
-      `Schedule ejecutado: ${result.schedule.name}. Se genero un nuevo run${result.autoAppliedCount > 0 ? ` y se autoaplicaron ${result.autoAppliedCount} seguras` : ""}.`
+      `Programación ejecutada: ${result.schedule.name}. Se generó una nueva ejecución${result.autoAppliedCount > 0 ? ` y se autoaplicaron ${result.autoAppliedCount} seguras` : ""}.`
     );
   }
 
@@ -730,7 +730,7 @@ export function OperationsAutomationPanel({
       const result = await runDueAutomationSchedulesAction();
 
       if (!result.ok && !result.execution) {
-        setActionError(result.error ?? "No se pudieron correr los schedules listos.");
+        setActionError(result.error ?? "No se pudieron correr las programaciones pendientes.");
         return;
       }
 
@@ -743,7 +743,7 @@ export function OperationsAutomationPanel({
       }
 
       if (!result.ok) {
-        setActionError(result.error ?? "No se pudieron correr los schedules listos.");
+        setActionError(result.error ?? "No se pudieron correr las programaciones pendientes.");
         return;
       }
 
@@ -755,14 +755,14 @@ export function OperationsAutomationPanel({
 
       setActionMessage(
         result.executedCount > 0
-          ? `Runner ejecutado. ${result.executedCount} schedules corridos, ${result.createdRunsCount} runs creados y ${result.autoAppliedCount} items autoaplicados.`
+          ? `Programador ejecutado. ${result.executedCount} programaciones ejecutadas, ${result.createdRunsCount} ejecuciones creadas y ${result.autoAppliedCount} elementos autoaplicados.`
           : result.dueCount > 0
-            ? "Se revisaron schedules listos, pero no se pudo crear un run nuevo."
-        : "No habia schedules listos para correr en este momento."
+            ? "Se revisaron programaciones pendientes, pero no se pudo crear una nueva ejecución."
+        : "No había programaciones pendientes para correr en este momento."
       );
     } catch (error) {
       console.error("[operations] runDueSchedulesNow error:", error);
-      setActionError("No se pudieron correr los schedules listos.");
+      setActionError("No se pudieron correr las programaciones pendientes.");
     } finally {
       setIsRunningDueSchedules(false);
     }
@@ -773,22 +773,22 @@ export function OperationsAutomationPanel({
       <section className="rounded-3xl border border-zinc-800 bg-zinc-900/90 p-4 sm:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-white">Schedules</h3>
+            <h3 className="text-lg font-semibold text-white">Programaciones</h3>
             <p className="mt-1 text-sm text-zinc-400">
-              Base lista para automatización programada supervisada sin cron real.
+              Historial de ejecuciones programadas.
             </p>
           </div>
 
           <div className="flex flex-col gap-3 xl:items-end">
             <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-400">
               <span>
-                Activos:{" "}
+                Activas:{" "}
                 <span className="font-semibold text-white">
                   {schedulesState.filter((schedule) => schedule.isEnabled).length}
                 </span>
               </span>
               <span>
-                Due ahora:{" "}
+                Pendientes por intervalo:{" "}
                 <span className="font-semibold text-white">{dueSchedulesCount}</span>
               </span>
             </div>
@@ -804,7 +804,7 @@ export function OperationsAutomationPanel({
               }
               className="inline-flex h-9 items-center justify-center rounded-xl border border-amber-800 bg-amber-700/80 px-4 text-sm text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isRunningDueSchedules ? "Corriendo runner..." : "Correr schedules due"}
+              {isRunningDueSchedules ? "Ejecutando..." : "Ejecutar programaciones pendientes"}
             </button>
           </div>
         </div>
@@ -819,10 +819,10 @@ export function OperationsAutomationPanel({
             >
               {getSchedulerExecutionStatusLabel(latestSchedulerExecutionState.status)}
             </span>{" "}
-            revisó {latestSchedulerExecutionState.schedulesChecked} schedules, corrió{" "}
+            revisó {latestSchedulerExecutionState.schedulesChecked} programaciones, corrió{" "}
             {latestSchedulerExecutionState.schedulesRun}, creó{" "}
-            {latestSchedulerExecutionState.runsCreated} runs, omitió{" "}
-            {latestSchedulerExecutionState.skippedLocked} por lock y{" "}
+            {latestSchedulerExecutionState.runsCreated} ejecuciones, omitió{" "}
+            {latestSchedulerExecutionState.skippedLocked} por bloqueo por otra ejecución y{" "}
             {latestSchedulerExecutionState.skippedDuplicate} por duplicado,{" "}
             {latestSchedulerExecutionState.skippedQuietHours} por horario, limitó{" "}
             {latestSchedulerExecutionState.limitedRuns} corridas, y autoaplicó{" "}
@@ -843,7 +843,7 @@ export function OperationsAutomationPanel({
 
         {schedulesState.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-zinc-700 bg-zinc-950/30 px-4 py-5 text-sm text-zinc-500">
-            Todavía no hay schedules configurados. Esta vista no crea schedules automáticamente.
+            Todavía no hay programaciones configuradas. Esta vista no crea programaciones automáticamente.
           </div>
         ) : (
           <div className="mt-4 space-y-2">
@@ -880,7 +880,7 @@ export function OperationsAutomationPanel({
                           <span className="inline-flex rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-300">
                             {schedule.autoApplySafe
                               ? "Autoaplicación activa"
-                              : "Solo genera run"}
+                              : "Solo genera una ejecución"}
                           </span>
                           <span className="inline-flex rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-300">
                             {getAutomationScheduleIntervalLabel(schedule)}
@@ -888,31 +888,30 @@ export function OperationsAutomationPanel({
                           <span className="inline-flex rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-300">
                             {policyDraft.respectQuietHours
                               ? "Respeta horario"
-                              : "Sin quiet hours"}
+                              : "Sin restricción horaria"}
                           </span>
                           <span className="inline-flex rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-300">
-                            Máx. {getAutomationScheduleMaxItemsPerRun(policyDraft)} items
+                            Máx. {getAutomationScheduleMaxItemsPerRun(policyDraft)} elementos
                           </span>
                           {isAutomationScheduleDue(schedule) ? (
                             <span className="inline-flex rounded-full border border-amber-900/50 bg-amber-950/20 px-2 py-0.5 text-[10px] text-amber-200">
-                              Due ahora
+                              Pendientes por intervalo
                             </span>
                           ) : null}
                           {policyDraft.respectQuietHours &&
                           !isAutomationScheduleWithinRunWindow(policyDraft) ? (
                             <span className="inline-flex rounded-full border border-rose-900/50 bg-rose-950/20 px-2 py-0.5 text-[10px] text-rose-200">
-                              Fuera de ventana
+                              Fuera del horario permitido
                             </span>
                           ) : null}
                         </div>
 
                         <p className="mt-2 text-sm text-zinc-300">
-                          Filtro {schedule.filter} · orden {schedule.sort} · página{" "}
-                          {schedule.page}/{schedule.pageSize}
+                          Filtro {getFilterLabel(schedule.filter as FilterType)} · orden {getSortLabel(schedule.sort as SortType)} · Página {schedule.page} · {schedule.pageSize} leads por página
                           {schedule.query ? ` · "${schedule.query}"` : ""}
                         </p>
                         <p className="mt-1 text-xs text-zinc-500">
-                          Último run:{" "}
+                          Última ejecución:{" "}
                           <span className="text-zinc-300">
                             {schedule.lastRunAt
                               ? formatDate(schedule.lastRunAt)
@@ -927,7 +926,7 @@ export function OperationsAutomationPanel({
                           Política actual:{" "}
                           <span className="text-zinc-300">
                             {normalizedDraftPolicy.enabled
-                              ? `Desde ${normalizedDraftPolicy.minConfidence} · ${getAutoApplyActionsLabel(
+                              ? `Confianza mínima: ${normalizedDraftPolicy.minConfidence === "high" ? "alta" : normalizedDraftPolicy.minConfidence === "medium" ? "media" : "baja"} · ${getAutoApplyActionsLabel(
                                   normalizedDraftPolicy.allowedActions
                                 )}`
                               : "Autoaplicación desactivada"}
@@ -937,7 +936,7 @@ export function OperationsAutomationPanel({
                           Operación:{" "}
                           <span className="text-zinc-300">
                             {getAutomationScheduleRunWindowLabel(policyDraft)} · tope{" "}
-                            {Math.max(1, policyDraft.maxItemsPerRun)} items por corrida
+                            {Math.max(1, policyDraft.maxItemsPerRun)} elementos por corrida
                           </span>
                         </p>
                       </div>
@@ -1154,16 +1153,16 @@ export function OperationsAutomationPanel({
       <section className="rounded-3xl border border-zinc-800 bg-zinc-900/90 p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-white">Ejecuciones del scheduler</h3>
+            <h3 className="text-lg font-semibold text-white">Ejecuciones del programador</h3>
             <p className="mt-1 text-sm text-zinc-400">
-              Trazabilidad real del runner automático antes de conectarlo a un cron.
+              Historial de ejecuciones programadas.
             </p>
           </div>
         </div>
 
         {recentSchedulerExecutionsState.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-zinc-700 bg-zinc-950/30 px-4 py-5 text-sm text-zinc-500">
-            Todavía no hay ejecuciones persistidas del scheduler.
+            Todavía no hay ejecuciones persistidas del programador.
           </div>
         ) : (
           <div className="mt-4 space-y-2">
@@ -1192,7 +1191,7 @@ export function OperationsAutomationPanel({
 
                     <p className="mt-2 text-sm text-zinc-300">
                       {execution.schedulesChecked} revisados · {execution.schedulesRun} corridos ·{" "}
-                      {execution.runsCreated} runs · {execution.skippedLocked} lock ·{" "}
+                      {execution.runsCreated} ejecuciones · {execution.skippedLocked} bloqueo por otra ejecución ·{" "}
                       {execution.skippedDuplicate} duplicados · {execution.skippedQuietHours} horario ·{" "}
                       {execution.limitedRuns} limitados ·{" "}
                       {execution.safeActionsApplied} seguras
@@ -1238,7 +1237,7 @@ export function OperationsAutomationPanel({
             {activeRun?.pendingCount ?? 0}
           </p>
           <p className="mt-2 text-sm text-zinc-400">
-            Items todavía no aplicados del run activo.
+            Elementos todavía no aplicados de la ejecución activa.
           </p>
         </div>
 
@@ -1256,7 +1255,7 @@ export function OperationsAutomationPanel({
 
         <div className="rounded-3xl border border-cyan-900/40 bg-cyan-950/10 p-5">
           <p className="text-xs uppercase tracking-[0.22em] text-cyan-200">
-            Runs recientes
+            Ejecuciones recientes
           </p>
           <p className="mt-3 text-3xl font-semibold text-white">
             {recentRunsState.length}
@@ -1274,7 +1273,7 @@ export function OperationsAutomationPanel({
               Cola automática persistida
             </h3>
             <p className="mt-1 text-sm text-zinc-400">
-              La cola visible trabaja sobre un run especifico y puede compartirse por
+              La cola visible trabaja sobre una ejecución específica y puede compartirse por
               URL.
             </p>
           </div>
@@ -1319,7 +1318,7 @@ export function OperationsAutomationPanel({
 
         {runNotFound ? (
           <div className="mt-4 rounded-2xl border border-amber-900/50 bg-amber-950/20 px-4 py-3 text-sm text-amber-200">
-            No se encontró el run solicitado. Se mostró el run disponible más reciente.
+            No se encontró la ejecución solicitada. Se mostró la ejecución disponible más reciente.
           </div>
         ) : null}
 
@@ -1336,7 +1335,7 @@ export function OperationsAutomationPanel({
                     {getRunStatusLabel(activeRun.status)}
                   </span>
                   <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[11px] text-zinc-300">
-                    Run {activeRun.id.slice(0, 8)}
+                    Ejecución {activeRun.id.slice(0, 8)}
                   </span>
                   <span className="text-xs text-zinc-500">
                     {formatDate(activeRun.createdAt)}
@@ -1346,13 +1345,13 @@ export function OperationsAutomationPanel({
                   Origen:{" "}
                   <span className="text-zinc-200">
                     {activeRun.source === "schedule"
-                      ? activeRun.scheduleName ?? "Schedule"
+                      ? activeRun.scheduleName ?? "Programación"
                       : "Manual"}
                   </span>{" "}
-                  · filtro <span className="text-zinc-200">{activeRun.filter}</span> · orden{" "}
-                  <span className="text-zinc-200">{activeRun.sort}</span> · página{" "}
+                  · filtro <span className="text-zinc-200">{getFilterLabel(activeRun.filter as FilterType)}</span> · orden{" "}
+                  <span className="text-zinc-200">{getSortLabel(activeRun.sort as SortType)}</span> · Página{" "}
                   <span className="text-zinc-200">
-                    {activeRun.page}/{activeRun.pageSize}
+                    {activeRun.page} · {activeRun.pageSize} leads por página
                   </span>
                   {activeRun.query ? (
                     <>
@@ -1413,7 +1412,7 @@ export function OperationsAutomationPanel({
           </div>
         ) : (
           <div className="mt-4 rounded-2xl border border-dashed border-cyan-900/40 bg-zinc-950/30 px-4 py-5 text-sm text-zinc-500">
-            Todavía no hay un run persistido para este contexto. Podés analizar el
+            Todavía no hay una ejecución registrada para este contexto. Podés analizar el
             lote cargado para crear la primera ejecución.
           </div>
         )}
@@ -1561,7 +1560,7 @@ export function OperationsAutomationPanel({
               </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-dashed border-cyan-900/40 bg-zinc-950/30 px-4 py-5 text-sm text-zinc-500">
-                Este run no tiene items para el filtro visual seleccionado.
+                Esta ejecución no tiene elementos para el filtro visual seleccionado.
               </div>
             )}
           </>
@@ -1571,9 +1570,9 @@ export function OperationsAutomationPanel({
       <section className="rounded-3xl border border-zinc-800 bg-zinc-900/90 p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-white">Runs recientes</h3>
+            <h3 className="text-lg font-semibold text-white">Ejecuciones recientes</h3>
             <p className="mt-1 text-sm text-zinc-400">
-              Historial corto de ejecuciones para seguimiento y auditoria.
+              Historial corto de ejecuciones para seguimiento y auditoría.
             </p>
           </div>
         </div>
@@ -1620,8 +1619,7 @@ export function OperationsAutomationPanel({
                         {run.failedCount} fallidos
                       </p>
                       <p className="mt-1 text-xs text-zinc-500">
-                        Filtro {run.filter} · orden {run.sort} · pagina {run.page}/
-                        {run.pageSize}
+                        Filtro {getFilterLabel(run.filter as FilterType)} · orden {getSortLabel(run.sort as SortType)} · Página {run.page} · {run.pageSize} leads por página
                         {run.query ? ` · "${run.query}"` : ""}
                       </p>
                     </div>
@@ -1629,7 +1627,7 @@ export function OperationsAutomationPanel({
                     <div className="flex shrink-0 items-center gap-2">
                       {isActive ? (
                         <span className="inline-flex rounded-full border border-cyan-900/50 bg-cyan-950/20 px-2 py-0.5 text-[10px] text-cyan-200">
-                          Run activo
+                          Ejecución activa
                         </span>
                       ) : null}
 
@@ -1637,7 +1635,7 @@ export function OperationsAutomationPanel({
                         href={buildOperationsHref(run.id)}
                         className="inline-flex h-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
                       >
-                        Abrir run
+                        Abrir ejecución
                       </Link>
                     </div>
                   </div>

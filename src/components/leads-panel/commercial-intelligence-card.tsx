@@ -31,7 +31,7 @@ export function CommercialIntelligenceCard({
                         lead.readyForAutomation
                     )}`}
                 >
-                    {lead.readyForAutomation ? "Automatizable" : "Manual"}
+                    {lead.readyForAutomation ? "Automatizable" : "Requiere revisión"}
                 </span>
             </div>
 
@@ -47,7 +47,7 @@ export function CommercialIntelligenceCard({
 
                 <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-                        Canal de outreach
+                        Canal de contacto
                     </p>
                     <p className="mt-0.5 break-words text-xs text-zinc-200">
                         {getOutreachChannelLabel(lead.outreachChannel)}

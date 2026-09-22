@@ -44,6 +44,6 @@ new Function('require','module','exports',code)(require,compiled,compiled.export
 const renderJob = counters => renderToStaticMarkup(createElement(compiled.exports.SearchJobsSection,{
   title:'Jobs',description:'Search history',jobs:[{id:'job',query:'fixture',status:'completed',createdAt:'2026-09-15T12:00:00Z',leadCount:0,...counters}],
 }));
-test('historical UI does not invent zero counters',()=>{const html=renderJob({foundCount:null});assert.match(html,/Sin desglose histórico/);assert.doesNotMatch(html,/Encontrados:/);});
-test('new duplicate-only job renders persisted execution counts',()=>{const html=renderJob({foundCount:3,createdCount:0,duplicateSkippedCount:3,possibleDuplicateCount:0});assert.match(html,/Encontrados: 3 · Nuevos leads: 0 · Duplicados omitidos: 3/);assert.doesNotMatch(html,/Posibles coincidencias/);});
+test('historical UI does not invent zero counters',()=>{const html=renderJob({foundCount:null});assert.match(html,/Desglose no disponible/);assert.doesNotMatch(html,/Resultados encontrados:/);});
+test('new duplicate-only job renders persisted execution counts',()=>{const html=renderJob({foundCount:3,createdCount:0,duplicateSkippedCount:3,possibleDuplicateCount:0});assert.match(html,/Resultados encontrados: 3 · Leads nuevos: 0 · Duplicados omitidos: 3/);assert.doesNotMatch(html,/Posibles coincidencias/);});
 test('possible count is informative and visible when positive',()=>assert.match(renderJob({foundCount:3,createdCount:3,duplicateSkippedCount:0,possibleDuplicateCount:2}),/Posibles coincidencias: 2/));

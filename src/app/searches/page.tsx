@@ -20,43 +20,43 @@ export default async function SearchesPage() {
     <AppShell
       metrics={[
         {
-          label: "Jobs visibles",
+          label: "Búsquedas recientes",
           value: String(latestSearchJobs.length),
-          helper: "Historial corto de adquisicion en esta vista.",
+          helper: "Historial corto de adquisición en esta vista.",
         },
         {
           label: "Leads captados",
           value: String(recentLeadVolume),
           tone: "info",
-          helper: "Volumen agregado de los jobs listados abajo.",
+          helper: "Volumen agregado de las búsquedas listadas abajo.",
         },
         {
-          label: "Base de jobs",
+          label: "Búsquedas totales",
           value: String(shellData.counts.searchJobCount),
-          helper: "Cantidad total de busquedas persistidas.",
+          helper: "Cantidad total de búsquedas persistidas.",
         },
       ]}
       alerts={[
         {
           title: "Resultado operativo",
           description:
-            "Los resultados completos se operan desde Leads para no mezclar adquisicion con pipeline comercial.",
+            "Los resultados completos se operan desde Leads para no mezclar adquisición con proceso comercial.",
           tone: "info",
         },
       ]}
-      title="Busquedas"
-      description="Modulo de adquisicion para crear jobs, revisar historial y pasar resultados al pipeline."
+      title="Búsquedas"
+      description="Módulo de adquisición para crear búsquedas, revisar historial y pasar resultados al proceso comercial."
       primaryAction={{
         label: "Abrir Leads",
         href: "/leads",
       }}
       contextPanel={{
-        eyebrow: "Adquisicion",
+        eyebrow: "Adquisición",
         title: "Entrada de nuevos leads",
         description:
-          "Esta area concentra la captura: lanzar scraping, revisar jobs y medir volumen reciente sin invadir la operacion comercial.",
+          "Esta área concentra la captura: buscar en Google Maps, revisar búsquedas y medir volumen reciente sin invadir la operación comercial.",
         footer:
-          "Cuando un job ya produjo datos, el siguiente paso natural es abrir Leads u Operaciones segun el momento del flujo.",
+          "Cuando una búsqueda ya produjo datos, el siguiente paso natural es abrir Leads u Operaciones según el momento del flujo.",
       }}
     >
       <div className="space-y-6">
@@ -64,10 +64,10 @@ export default async function SearchesPage() {
           id="new-search-section"
           className="rounded-3xl border border-zinc-800 bg-zinc-900/90 p-6"
         >
-          <h3 className="text-xl font-semibold text-white">Nueva busqueda</h3>
+          <h3 className="text-xl font-semibold text-white">Nueva búsqueda</h3>
           <p className="mt-2 text-sm text-zinc-400">
-            Ejecuta scraping y genera nuevos leads sin salir del modulo de
-            adquisicion.
+            Busca en Google Maps y genera nuevos leads sin salir del módulo de
+            adquisición.
           </p>
 
           <SearchForm />
@@ -79,22 +79,22 @@ export default async function SearchesPage() {
               Flujo actual
             </p>
             <p className="mt-3 text-lg font-semibold text-white">
-              Adquisicion separada del pipeline
+              Adquisición separada del proceso comercial
             </p>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Busquedas concentra input y jobs. Leads concentra lectura comercial.
+              Búsquedas concentra datos de búsqueda e historial. Leads concentra lectura comercial.
             </p>
           </div>
 
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/90 p-5">
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-              Jobs ejecutados
+              Búsquedas registradas
             </p>
             <p className="mt-3 text-3xl font-semibold text-white">
               {shellData.counts.searchJobCount}
             </p>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Base acumulada de adquisicion persistida.
+              Base acumulada de adquisición persistida.
             </p>
           </div>
 
@@ -110,17 +110,17 @@ export default async function SearchesPage() {
                 href="/leads"
                 className="inline-flex h-10 items-center justify-center rounded-xl border border-cyan-800 bg-cyan-700/90 px-4 text-sm text-white transition hover:bg-cyan-600"
               >
-                Ir al pipeline
+                Ir al proceso comercial
               </Link>
             </div>
           </div>
         </section>
 
         <SearchJobsSection
-          title="Historial de busquedas"
-          description="Jobs ejecutados recientemente, con acceso rapido al volumen de leads generado."
+          title="Historial de búsquedas"
+          description="Búsquedas registradas recientemente, con acceso rapido al volumen de leads generado."
           jobs={latestSearchJobs}
-          badgeLabel={`${shellData.counts.searchJobCount} jobs`}
+          badgeLabel={`${shellData.counts.searchJobCount} búsquedas`}
           footerHref="/leads"
           footerLabel="Ir a resultados en Leads"
         />

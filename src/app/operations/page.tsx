@@ -84,18 +84,18 @@ export default async function OperationsPage({
     <AppShell
       metrics={[
         {
-          label: "Schedules activos",
+          label: "Programaciones activas",
           value: String(activeSchedules),
-          helper: "Polizas de automatizacion disponibles hoy.",
+          helper: "Programaciones de automatización habilitadas.",
         },
         {
-          label: "Due ahora",
+          label: "Pendientes por intervalo",
           value: String(dueSchedules),
           tone: dueSchedules > 0 ? "warning" : "default",
-          helper: "Schedules que podrian correr en este momento.",
+          helper: "Programaciones cuyo intervalo se cumplió; sujetas al horario y las reglas de ejecución.",
         },
         {
-          label: "Runs recientes",
+          label: "Ejecuciones recientes",
           value: String(recentRuns.length),
           tone: "info",
           helper: "Historial corto de ejecuciones persistidas.",
@@ -103,20 +103,20 @@ export default async function OperationsPage({
         {
           label: "Lote cargado",
           value: String(leads.length),
-          helper: "Contexto actual para analisis y supervision.",
+          helper: "Contexto actual para análisis y supervisión.",
         },
       ]}
       alerts={[
         {
-          title: "Fuente unica de automatizacion",
+          title: "Fuente única de automatización",
           description:
-            "Operaciones ya es el lugar correcto para runs, cola, scheduler y ejecucion supervisada.",
+            "Operaciones ya es el lugar correcto para ejecuciones, cola, programador y ejecución supervisada.",
           tone: "info",
         },
         latestSchedulerExecution
           ? {
-              title: "Ultimo runner",
-              description: `${latestSchedulerExecution.schedulesRun} schedules corridos y ${latestSchedulerExecution.runsCreated} runs creados en la ultima ejecucion.`,
+              title: "Última ejecución programada",
+              description: `${latestSchedulerExecution.schedulesRun} programaciones ejecutadas y ${latestSchedulerExecution.runsCreated} ejecuciones creadas en la última ejecución.`,
               tone:
                 latestSchedulerExecution.status === "failed"
                   ? "danger"
@@ -125,23 +125,23 @@ export default async function OperationsPage({
                     : "info",
             }
           : {
-              title: "Runner listo",
+              title: "Programador listo",
               description:
-                "Todavia no hay ejecuciones del scheduler, pero la base ya esta preparada.",
+                "Todavía no hay ejecuciones del programador, pero la base ya esta preparada.",
               tone: "info",
             },
       ]}
       title="Operaciones"
-      description="Centro de automatizacion supervisada, scheduler, cola automatica y ejecucion masiva."
+      description="Centro de automatización supervisada, programador, cola automática y ejecución masiva."
       primaryAction={{
         label: "Ir a Leads",
         href: "/leads",
       }}
       contextPanel={{
-        eyebrow: "Automatizacion",
+        eyebrow: "Automatización",
         title: "Control global",
         description:
-          "Este modulo concentra la lectura de runs, schedules, ejecuciones del scheduler y la automatizacion supervisada del sistema.",
+          "Este módulo concentra la lectura de ejecuciones, programaciones, ejecuciones del programador y la automatización supervisada del sistema.",
         footer:
           "Leads sigue siendo la mesa de trabajo por registro. Operaciones es el lugar para mirar el sistema como flujo global.",
       }}
@@ -158,11 +158,11 @@ export default async function OperationsPage({
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h3 className="text-xl font-semibold text-white">
-                Automatizacion global
+                Automatización global
               </h3>
               <p className="mt-2 text-sm text-zinc-400">
                 Esta vista trabaja sobre el conjunto filtrado actual y concentra
-                analisis, scheduler, cola y ejecucion supervisada.
+                análisis, programador, cola y ejecución supervisada.
               </p>
             </div>
 

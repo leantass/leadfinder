@@ -5,11 +5,11 @@ export default function ContactsPage() {
   return (
     <AppShell
       title="Contactos"
-      description="Incorporá oportunidades manuales al mismo pipeline comercial de LeadFinder."
+      description="Incorporá oportunidades manuales al mismo proceso comercial de LeadFinder."
       primaryAction={{ label: "Abrir Leads", href: "/leads" }}
       metrics={[
         { label: "Entrada", value: "Manual", helper: "Individual o lista" },
-        { label: "Destino", value: "Leads", tone: "info", helper: "Pipeline unificado" },
+        { label: "Destino", value: "Leads", tone: "info", helper: "Proceso comercial unificado" },
         { label: "Trazabilidad", value: "Activa", tone: "success", helper: "Actividad de creación" },
       ]}
       contextPanel={{

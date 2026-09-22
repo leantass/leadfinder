@@ -84,7 +84,7 @@ export function ManualContactForm() {
       <div className="rounded-3xl border border-emerald-900/70 bg-emerald-950/25 p-6 sm:p-8" role="status" data-testid="contact-success">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-900/50 text-2xl text-emerald-300">✓</div>
         <p className="mt-5 text-xs font-medium uppercase tracking-[0.22em] text-emerald-400">Contacto incorporado</p>
-        <h3 className="mt-2 text-2xl font-semibold text-white">{createdLead.businessName} ya está en el pipeline</h3>
+        <h3 className="mt-2 text-2xl font-semibold text-white">{createdLead.businessName} ya está en Leads</h3>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
           Se creó como lead de origen manual y ya puede usar estados, seguimiento, notas y automatización.
         </p>
@@ -106,7 +106,7 @@ export function ManualContactForm() {
         <p className="text-xs font-medium uppercase tracking-[0.22em] text-cyan-400">Alta individual</p>
         <h3 className="mt-2 text-xl font-semibold text-white">Nuevo contacto manual</h3>
         <p className="mt-2 text-sm leading-6 text-zinc-400">
-          El contacto entra directamente al pipeline de Leads. Ingresá al menos un teléfono o sitio web.
+          El contacto entra directamente al proceso comercial de Leads. Ingresá al menos un teléfono o sitio web.
         </p>
       </div>
 
@@ -152,7 +152,7 @@ export function ManualContactForm() {
       <div className="mt-6 flex flex-col-reverse gap-3 border-t border-zinc-800 pt-5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs leading-5 text-zinc-500">Los campos opcionales vacíos no se guardan.</p>
         <button type="submit" disabled={isPending} className="inline-flex h-12 min-w-44 items-center justify-center rounded-2xl bg-cyan-700 px-6 text-sm font-medium text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-60" data-testid="contact-submit">
-          {isPending ? "Incorporando..." : "Incorporar al pipeline"}
+          {isPending ? "Incorporando..." : "Incorporar a Leads"}
         </button>
       </div>
     </form>
