@@ -53,7 +53,7 @@ export function LeadsListControls({
               name="q"
               type="text"
               defaultValue={queryState.q}
-              placeholder="Nombre, teléfono, website, estado o nota"
+              placeholder="Nombre, teléfono, sitio web, estado o nota"
               className="h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-500"
             />
           </div>
@@ -115,7 +115,7 @@ export function LeadsListControls({
               htmlFor={`${pathname}-page-size`}
               className="mb-2 block text-[11px] uppercase tracking-[0.18em] text-zinc-500"
             >
-              Página
+              Leads por página
             </label>
             <select
               id={`${pathname}-page-size`}

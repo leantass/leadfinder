@@ -32,7 +32,6 @@ import {
     getLeadPreviewReasons,
     getOpportunityLevel,
     getPrimaryActionClasses,
-    getPrimaryActionLabel,
     getScoreLabel,
     getScoreTone,
     getStatusBadge,
@@ -693,7 +692,6 @@ export function LeadsPanel({
     const activeLeadWhatsAppUrl = activeLead ? getWhatsAppUrlFromLead(activeLead) : null;
     const activeLeadWhatsAppMessage = activeLead ? buildWhatsAppMessage(activeLead) : null;
     const hotCount = groupedLeads.hot.length;
-    const warmCount = groupedLeads.warm.length;
     const coldCount = groupedLeads.cold.length;
     const getActivityBadgeClasses = (type: string) => {
         if (type === "status_changed") {
@@ -926,7 +924,7 @@ export function LeadsPanel({
                                     type="text"
                                     value={searchTerm}
                                     onChange={(event) => setSearchTerm(event.target.value)}
-                                    placeholder="Nombre, teléfono, website, score, estado, motivo o nota"
+                                    placeholder="Nombre, teléfono, sitio web, score, estado, motivo o nota"
                                     className="h-11 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-500"
                                 />
                                 <button
@@ -951,16 +949,16 @@ export function LeadsPanel({
                     </div>
                     ) : displaySearchTerm ? (
                         <div className="mt-3 text-sm text-zinc-400">
-                            Búsqueda activa en servidor:{" "}
+                            Búsqueda aplicada:{" "}
                             <span className="text-white">{displaySearchTerm}</span>
                         </div>
                     ) : null}
                 </div>
 
-                <div className="mt-3 grid gap-2.5 lg:grid-cols-3">
+                <div className="mt-3 grid gap-2.5 lg:grid-cols-2">
                     <div className="rounded-2xl border border-red-900/40 bg-red-950/10 p-3.5">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-red-200">
-                            HOT
+                            Contacto prioritario
                         </p>
                         <p className="mt-2 text-3xl font-semibold text-white">{hotCount}</p>
                         <p className="mt-2 text-sm text-zinc-400">
@@ -968,19 +966,10 @@ export function LeadsPanel({
                         </p>
                     </div>
 
-                    <div className="rounded-2xl border border-amber-900/40 bg-amber-950/10 p-3.5">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">
-                            WARM
-                        </p>
-                        <p className="mt-2 text-3xl font-semibold text-white">{warmCount}</p>
-                        <p className="mt-2 text-sm text-zinc-400">
-                            Franja intermedia reservada para una regla futura.
-                        </p>
-                    </div>
 
                     <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-3.5">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-                            COLD
+                            Menor prioridad
                         </p>
                         <p className="mt-2 text-3xl font-semibold text-white">{coldCount}</p>
                         <p className="mt-2 text-sm text-zinc-400">
@@ -1166,7 +1155,7 @@ export function LeadsPanel({
                                                                     opportunityLevel
                                                                 )}`}
                                                             >
-                                                                {getPrimaryActionLabel(opportunityLevel)}
+                                                                Abrir WhatsApp
                                                             </a>
                                                         ) : (
                                                             <button
@@ -1176,7 +1165,7 @@ export function LeadsPanel({
                                                                     opportunityLevel
                                                                 )}`}
                                                             >
-                                                                {getPrimaryActionLabel(opportunityLevel)}
+                                                                Ver detalle
                                                             </button>
                                                         )}
                                                     </div>
@@ -1188,7 +1177,7 @@ export function LeadsPanel({
                                                         <span className="break-words">{lead.phone ?? "—"}</span>
                                                     </div>
                                                     <div className="min-w-0 max-w-full">
-                                                        <span className="text-zinc-500">Web:</span>{" "}
+                                                                    <span className="text-zinc-500">Sitio web:</span>{" "}
                                                         <span className="break-words font-medium text-zinc-200">
                                                             {lead.website ? getDomainLabel(lead.website) : "—"}
                                                         </span>
@@ -1204,7 +1193,7 @@ export function LeadsPanel({
                                                         ))}
                                                         {extraSignalCount > 0 ? (
                                                             <span className="inline-flex rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[11px] leading-4 text-zinc-400">
-                                                                +{extraSignalCount}
+                                                                +{extraSignalCount} señales adicionales
                                                             </span>
                                                         ) : null}
                                                     </div>
@@ -1558,7 +1547,7 @@ export function LeadsPanel({
 
                                         <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
                                             <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-                                                Estado de outreach
+                                                Estado de contacto
                                             </p>
                                             <div className="mt-1.5">
                                                 <span
@@ -1611,7 +1600,7 @@ export function LeadsPanel({
                                     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 sm:col-span-2">
                                         <div className="flex items-center justify-between gap-2">
                                             <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-                                                Website
+                                                Sitio web
                                             </p>
                                             <WebsiteTypeSignalBadge
                                                 websiteType={activeLead.websiteType}

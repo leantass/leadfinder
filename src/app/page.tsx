@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { getSearchStatusLabel } from "@/components/search-jobs-section";
 import {
   getDashboardSummaryData,
   getLatestSearchJobs,
@@ -20,9 +21,9 @@ export default async function Home() {
 
   const focusCards = [
     {
-      label: "Leads urgentes",
+      label: "Leads con teléfono por gestionar",
       value: String(dashboardSummary.urgentLeadsCount),
-      detail: "Contactables y todavia activos para operar desde Leads.",
+      detail: "Con teléfono registrado; excluye cerrados, descartados y listos para ventas.",
       href: "/leads",
       tone:
         dashboardSummary.urgentLeadsCount > 0
@@ -32,7 +33,7 @@ export default async function Home() {
     {
       label: "Seguimientos hoy",
       value: String(dashboardSummary.followUpDueTodayCount),
-      detail: "Bloque del dia para no perder trazabilidad comercial.",
+      detail: "Bloque del día para no perder trazabilidad comercial.",
       href: "/leads?filter=follow-up-today",
       tone:
         dashboardSummary.followUpDueTodayCount > 0
@@ -40,9 +41,9 @@ export default async function Home() {
           : "border-zinc-800 bg-zinc-900/90",
     },
     {
-      label: "Listos para automatizar",
+      label: "Candidatos a automatización",
       value: String(shellData.counts.automationReadyLeadsCount),
-      detail: "Lote disponible para supervision y ejecucion en Operaciones.",
+      detail: "Marcados como aptos; sujetos a las reglas de ejecución.",
       href: "/operations",
       tone:
         shellData.counts.automationReadyLeadsCount > 0
@@ -53,24 +54,19 @@ export default async function Home() {
 
   const quickLinks = [
     {
-      title: "Busquedas",
-      description: "Lanzar nuevos jobs y revisar adquisicion reciente.",
+      title: "Búsquedas",
+      description: "Lanzar nuevas búsquedas y revisar adquisición reciente.",
       href: "/searches",
     },
     {
       title: "Leads",
-      description: "Operar el pipeline comercial, seguimiento y detalle.",
+      description: "Operar el proceso comercial, seguimiento y detalle.",
       href: "/leads",
     },
     {
       title: "Operaciones",
-      description: "Analizar runs, schedules y automatizacion supervisada.",
+      description: "Revisar ejecuciones, programaciones y automatización supervisada.",
       href: "/operations",
-    },
-    {
-      title: "Reportes",
-      description: "Leer la base ejecutiva y preparar visibilidad futura.",
-      href: "/reports",
     },
   ];
 
@@ -78,19 +74,19 @@ export default async function Home() {
     <AppShell
       metrics={[
         {
-          label: "Foco urgente",
+          label: "Leads con teléfono por gestionar",
           value: String(dashboardSummary.urgentLeadsCount),
           tone: "warning",
-          helper: "Leads que merecen atencion inmediata.",
+          helper: "Con teléfono registrado; excluye cerrados, descartados y listos para ventas.",
         },
         {
-          label: "Busquedas totales",
+          label: "Búsquedas totales",
           value: String(shellData.counts.searchJobCount),
           tone: "info",
-          helper: "Adquisicion ya separada de la operacion comercial.",
+          helper: "Adquisición ya separada de la operación comercial.",
         },
         {
-          label: "Leads activos",
+          label: "Leads totales",
           value: String(shellData.counts.leadCount),
           helper: "Base total disponible para lectura ejecutiva.",
         },
@@ -105,16 +101,16 @@ export default async function Home() {
           tone: shellData.counts.followUpOverdueCount > 0 ? "warning" : "info",
         },
         {
-          title: "Automatizacion lista",
+          title: "Candidatos a automatización",
           description:
             shellData.counts.automationReadyLeadsCount > 0
-              ? `${shellData.counts.automationReadyLeadsCount} leads pueden pasar por Operaciones.`
-              : "Todavia no hay lote listo para automatizacion supervisada.",
+              ? `${shellData.counts.automationReadyLeadsCount} leads marcados como aptos; sujetos a las reglas de ejecución.`
+              : "Todavía no hay candidatos a automatización.",
           tone: "info",
         },
       ]}
       title="Dashboard"
-      description="Punto de arranque del dia con foco ejecutivo, alertas y accesos rapidos."
+      description="Punto de arranque del día con foco ejecutivo, alertas y accesos rápidos."
       primaryAction={{
         label: "Abrir operaciones",
         href: "/operations",
@@ -123,9 +119,9 @@ export default async function Home() {
         eyebrow: "Centro de control",
         title: "Tablero ejecutivo",
         description:
-          "Esta vista resume prioridad, riesgo y proximos movimientos sin mezclar adquisicion, operacion por lead y automatizacion en una sola pantalla.",
+          "Esta vista resume prioridad, riesgo y próximos movimientos sin mezclar adquisición, operación por lead y automatización en una sola pantalla.",
         footer:
-          "La idea es empezar aca, detectar foco y luego entrar al modulo correcto para trabajar.",
+          "La idea es empezar acá, detectar foco y luego entrar al módulo correcto para trabajar.",
       }}
     >
       <div className="space-y-6">
@@ -133,14 +129,14 @@ export default async function Home() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-                Foco del dia
+                Foco del día
               </p>
               <h3 className="mt-2 text-2xl font-semibold text-white">
                 Tres frentes para arrancar sin perder contexto
               </h3>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-400">
                 El dashboard ya no intenta operar toda la plataforma. Solo marca
-                prioridad, expone alertas reales y te empuja al modulo correcto.
+                prioridad, expone alertas reales y te empuja al módulo correcto.
               </p>
             </div>
           </div>
@@ -165,7 +161,7 @@ export default async function Home() {
                     href={card.href}
                     className="inline-flex h-10 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
                   >
-                    Abrir modulo
+                    Abrir módulo
                   </Link>
                 </div>
               </div>
@@ -177,7 +173,7 @@ export default async function Home() {
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/90 p-6">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-xl font-semibold text-white">Accesos rapidos</h3>
+                <h3 className="text-xl font-semibold text-white">Accesos rápidos</h3>
                 <p className="mt-2 text-sm text-zinc-400">
                   Entradas claras a cada frente de trabajo principal.
                 </p>
@@ -203,14 +199,14 @@ export default async function Home() {
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/90 p-6">
             <h3 className="text-xl font-semibold text-white">Resumen ejecutivo</h3>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              El sistema ya esta separado en adquisicion, pipeline y operacion
-              automatizada. Desde aca solo ves la lectura corta para empezar.
+              El sistema ya está separado en adquisición, proceso comercial y operación
+              automatizada. Desde acá solo ves la lectura corta para empezar.
             </p>
 
             <div className="mt-4 space-y-3">
               <div className="rounded-2xl border border-zinc-800 bg-[#0b1220] p-4">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-zinc-300">Calificados</span>
+                  <span className="text-sm text-zinc-300">Calificados para contacto</span>
                   <span className="text-sm font-semibold text-white">
                     {shellData.counts.qualifiedLeadsCount}
                   </span>
@@ -218,7 +214,7 @@ export default async function Home() {
               </div>
               <div className="rounded-2xl border border-zinc-800 bg-[#0b1220] p-4">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-zinc-300">Sin web</span>
+                  <span className="text-sm text-zinc-300">Sin URL web registrada</span>
                   <span className="text-sm font-semibold text-white">
                     {shellData.counts.leadsWithoutWebsiteCount}
                   </span>
@@ -239,10 +235,10 @@ export default async function Home() {
         <section className="rounded-3xl border border-zinc-800 bg-zinc-900/90 p-6">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h3 className="text-xl font-semibold text-white">Ultimas busquedas</h3>
+              <h3 className="text-xl font-semibold text-white">Últimas búsquedas</h3>
               <p className="mt-2 text-sm text-zinc-400">
-                Lectura corta de adquisicion para detectar si hace falta volver a
-                Busquedas.
+                Lectura corta de adquisición para detectar si hace falta volver a
+                Búsquedas.
               </p>
             </div>
 
@@ -250,13 +246,13 @@ export default async function Home() {
               href="/searches"
               className="inline-flex h-10 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
             >
-              Ver Busquedas
+              Ver Búsquedas
             </Link>
           </div>
 
           {latestSearchJobs.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-6 text-sm text-zinc-500">
-              Todavia no hay busquedas registradas.
+              Todavía no hay búsquedas registradas.
             </div>
           ) : (
             <div className="mt-4 space-y-3">
@@ -276,7 +272,7 @@ export default async function Home() {
                     </div>
 
                     <span className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs uppercase tracking-[0.18em] text-zinc-400">
-                      {job.status}
+                      {getSearchStatusLabel(job.status)}
                     </span>
                   </div>
                 </div>

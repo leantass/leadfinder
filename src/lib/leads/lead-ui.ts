@@ -410,14 +410,14 @@ export function getOpportunityLevel(lead: LeadWithWebsiteType): OpportunityLevel
 
 export function getOpportunityLabel(level: OpportunityLevel) {
     if (level === "hot") {
-        return "HOT";
+        return "Contacto prioritario";
     }
 
     if (level === "warm") {
-        return "WARM";
+        return "Prioridad intermedia";
     }
 
-    return "COLD";
+    return "Menor prioridad";
 }
 
 export function getOpportunityDescription(level: OpportunityLevel) {
@@ -465,7 +465,7 @@ export function getPrimaryActionLabel(level: OpportunityLevel) {
         return "Revisar oportunidad";
     }
 
-    return "Baja prioridad";
+    return "Ver detalle";
 }
 
 export function getPrimaryActionClasses(level: OpportunityLevel) {

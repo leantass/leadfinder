@@ -72,15 +72,10 @@ type AppShellProps = {
 
 const navigation: NavigationItem[] = [
   { label: "Dashboard", href: "/", icon: "dashboard" },
-  { label: "Busquedas", href: "/searches", icon: "search" },
+  { label: "Búsquedas", href: "/searches", icon: "search" },
   { label: "Contactos", href: "/contacts", icon: "contacts" },
-  { label: "Leads", href: "/leads", badge: "Core", icon: "leads" },
-  { label: "Operaciones", href: "/operations", badge: "Auto", icon: "operations" },
-  { label: "Fuentes", href: "/sources", icon: "sources" },
-  { label: "Scrapers", href: "/scrapers", icon: "scrapers" },
-  { label: "Campanas", href: "/campaigns", icon: "campaigns" },
-  { label: "Reportes", href: "/reports", icon: "reports" },
-  { label: "Configuracion", href: "/settings", icon: "settings" },
+  { label: "Leads", href: "/leads", icon: "leads" },
+  { label: "Operaciones", href: "/operations", icon: "operations" },
 ];
 
 function getMetricToneClasses(tone: MetricCard["tone"] = "default") {
@@ -272,10 +267,6 @@ function SupportingColumn({
                 Estado operativo
               </h3>
             </div>
-
-            <span className="shrink-0 rounded-full border border-emerald-900/60 bg-emerald-950/30 px-3 py-1 text-xs font-medium text-emerald-300">
-              Online
-            </span>
           </div>
 
           <div className="mt-5 space-y-4">
@@ -309,7 +300,7 @@ function SupportingColumn({
             Embudo
           </p>
           <h3 className="mt-1 text-lg font-semibold text-white">
-            Flujo del modulo
+            Flujo del módulo
           </h3>
 
           <div className="mt-5 space-y-3">
@@ -378,7 +369,7 @@ export function AppShell({
                     }`}
                   >
                     <p className="truncate text-sm font-medium text-zinc-300">
-                      Lead Intelligence System
+                      Gestión de leads
                     </p>
                     <h1 className="truncate text-[20px] font-semibold tracking-tight text-white">
                       LeadFinder
@@ -395,7 +386,7 @@ export function AppShell({
                         isSidebarCollapsed ? "opacity-0" : "opacity-100"
                       }`}
                     >
-                      Navegacion
+                      Navegación
                     </p>
                   </div>
                 </div>
@@ -464,36 +455,6 @@ export function AppShell({
                 </nav>
               </div>
 
-              <div className="mt-auto border-t border-zinc-900 px-3 py-4 sm:px-4 xl:px-3 xl:py-5">
-                <div className="rounded-3xl border border-zinc-800 bg-zinc-900/80 p-4 transition-all duration-300 ease-in-out">
-                  {!isSidebarCollapsed ? (
-                    <>
-                      <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-                        Estado general
-                      </p>
-
-                      <div className="mt-3 flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                        <span className="text-sm text-zinc-200">
-                          Plataforma activa
-                        </span>
-                      </div>
-
-                      <p className="mt-3 text-sm leading-6 text-zinc-400">
-                        Navegacion modular lista para separar adquisicion,
-                        operacion y automatizacion sin perder una sola base de verdad.
-                      </p>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-2 py-1">
-                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                      <span className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-                        Online
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           </aside>
 
@@ -520,7 +481,7 @@ export function AppShell({
 
                     <div className="min-w-0">
                       <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-                        Workspace
+                        Espacio de trabajo
                       </p>
                       <h2 className="truncate text-[20px] font-semibold tracking-tight text-white sm:text-[22px] xl:text-[24px]">
                         {title}
@@ -532,7 +493,7 @@ export function AppShell({
                   <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] xl:justify-self-end">
                     <div className="min-w-0 rounded-2xl border border-zinc-800 bg-zinc-900/90 px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                        Area activa
+                        Área activa
                       </p>
                       <p className="mt-1 truncate text-sm text-zinc-300">{title}</p>
                     </div>
@@ -653,7 +614,7 @@ export function AppShell({
                   <div className="mt-auto border-t border-zinc-900 px-6 py-6">
                     <div className="rounded-3xl border border-cyan-900/50 bg-cyan-950/20 p-5">
                       <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">
-                        Vision del modulo
+                        Vision del módulo
                       </p>
                       <p className="mt-3 text-sm leading-6 text-zinc-300">
                         {contextPanel.footer}

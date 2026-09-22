@@ -48,15 +48,15 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
     <AppShell
       metrics={[
         {
-          label: "Leads en pagina",
+          label: "Leads en página",
           value: String(leads.length),
-          helper: "Lote cargado actualmente en la vista core.",
+          helper: "Leads cargados en esta página.",
         },
         {
           label: "Total filtrado",
           value: String(pagination.totalLeads),
           tone: "info",
-          helper: "Resultado server-side para query, filtro y orden actual.",
+          helper: "Leads que coinciden con la búsqueda y los filtros aplicados.",
         },
         {
           label: "Seguimiento vencido",
@@ -72,25 +72,25 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
       ]}
       alerts={[
         {
-          title: "Vista core del sistema",
+          title: "Gestión comercial",
           description:
-            "Todo lo operativo por lead vive aca: filtros, drawer, seguimiento, notas, historial y estados.",
+            "Todo lo operativo por lead vive acá: filtros, detalle, seguimiento, notas, historial y estados.",
           tone: "info",
         },
       ]}
       title="Leads"
-      description="Vista core de operacion comercial con lectura, seguimiento, historial y detalle por lead."
+      description="Vista de operación comercial con lectura, seguimiento, historial y detalle por lead."
       primaryAction={{
         label: "Ir a Operaciones",
         href: "/operations",
       }}
       contextPanel={{
-        eyebrow: "Pipeline comercial",
-        title: "Operacion por lead",
+        eyebrow: "Proceso comercial",
+        title: "Operación por lead",
         description:
-          "Este modulo concentra el trabajo fino: priorizar, abrir detalle, cambiar estado, cargar notas y sostener seguimiento sin salir del flujo.",
+          "Este módulo concentra el trabajo fino: priorizar, abrir detalle, cambiar estado, cargar notas y sostener seguimiento sin salir del flujo.",
         footer:
-          "Operaciones queda como centro de automatizacion global. Leads queda como la mesa de trabajo por registro.",
+          "Operaciones queda como centro de automatización global. Leads queda como la mesa de trabajo por registro.",
       }}
     >
       <div className="space-y-4">

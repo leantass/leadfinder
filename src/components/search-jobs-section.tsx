@@ -22,6 +22,16 @@ type SearchJobsSectionProps = {
   footerLabel?: string;
 };
 
+export function getSearchStatusLabel(status: string) {
+  switch (status) {
+    case "completed": return "Completada";
+    case "failed": return "Fallida";
+    case "pending": return "Pendiente";
+    case "running": return "En curso";
+    default: return "Estado no disponible";
+  }
+}
+
 function formatJobDate(value: Date | string) {
   return new Date(value).toLocaleString("es-AR");
 }
@@ -69,8 +79,8 @@ export function SearchJobsSection({
                   </p>
                   <p className="mt-1 text-sm text-zinc-400">
                     {job.foundCount == null || job.createdCount == null || job.duplicateSkippedCount == null || job.possibleDuplicateCount == null
-                      ? "Sin desglose histórico"
-                      : `Encontrados: ${job.foundCount} · Nuevos leads: ${job.createdCount} · Duplicados omitidos: ${job.duplicateSkippedCount}`}
+                      ? "Desglose no disponible"
+                      : `Resultados encontrados: ${job.foundCount} · Leads nuevos: ${job.createdCount} · Duplicados omitidos: ${job.duplicateSkippedCount}`}
                   </p>
                   {job.possibleDuplicateCount != null && job.possibleDuplicateCount > 0 ? (
                     <p className="mt-1 text-sm text-amber-300">Posibles coincidencias: {job.possibleDuplicateCount}</p>
@@ -78,7 +88,7 @@ export function SearchJobsSection({
                 </div>
 
                 <span className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs uppercase tracking-[0.18em] text-zinc-400">
-                  {job.status}
+                  {getSearchStatusLabel(job.status)}
                 </span>
               </div>
             </div>

@@ -73,7 +73,7 @@ export function BulkContactForm() {
   function reset() { setResult(null); setPreview(null); setText(""); setConfig(null); setTable(null); setOptions([]); setError(null); setSelected([]); setOverrides([]); }
 
   if (result) return <section role="status" className="rounded-3xl border border-emerald-900 bg-emerald-950/25 p-5 sm:p-7">
-    <h3 className="text-xl font-semibold text-white">{result.created} contactos incorporados al pipeline</h3>
+    <h3 className="text-xl font-semibold text-white">{result.created} contactos incorporados a Leads</h3>
     <p className="mt-3 text-sm text-zinc-300">{result.duplicate} duplicados omitidos · {result.invalid} inválidos · {result.possibleOmitted} posibles duplicados no seleccionados · {result.newOmitted} nuevos no seleccionados</p>
     <div className="mt-5 flex flex-wrap gap-3"><Link href="/leads" className={button}>Ver Leads</Link><button type="button" onClick={reset} className={button}>Pegar otra lista</button></div>
   </section>;
