@@ -5,7 +5,7 @@ import { SignJWT } from 'jose';
 import { closeSync, mkdtempSync, openSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { disposableBulkDatabase } from './helpers/bulk-postgres.mjs';
@@ -85,10 +85,9 @@ test('UX 1.0 pages at desktop and mobile widths', { timeout: 360000 }, async t =
   } finally {
     await browser?.close();
     if (child && child.exitCode === null) {
-      const exited = new Promise(resolve => child.once('exit', resolve));
-      if (process.platform === 'win32') execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
-      else child.kill();
-      await exited;
+      const exited = new Promise(resolve => child.once('exit', () => resolve(true)));
+      assert.equal(child.kill('SIGTERM'), true, 'QA app did not accept the shutdown signal');
+      assert.equal(await Promise.race([exited, delay(5000).then(() => false)]), true, 'QA app did not exit after the shutdown signal');
     }
     closeSync(log);
     await db.cleanup();
